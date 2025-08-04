@@ -1,0 +1,58 @@
+---
+Checks: "
+        *,
+        -fuchsia-trailing-return,
+        -modernize-use-trailing-return-type,
+        -cppcoreguidelines-pro-type-union-access,
+        -llvm*,
+        -*-default-arguments-calls,
+        -*-unroll-loops,
+        -*-avoid-magic-numbers,
+        -readability-magic-numbers,
+        -bugprone-easily-swappable-parameters,
+        -google-readability-todo,
+        -Wc++98-compat,
+        -misc-non-private-member-variables-in-classes,
+        -readability-identifier-length,
+        -cppcoreguidelines-pro-bounds-constant-array-index,
+        -cppcoreguidelines-non-private-member-variables-in-classes,
+        -fuchsia-overloaded-operator,
+        -fuchsia-default-arguments-declarations,
+        -misc-use-anonymous-namespace,
+"
+CheckOptions:
+  performance-for-range-copy.WarnOnAllAutoCopies: true
+  performance-inefficient-string-concatenation.StrictMode: true
+  readability-braces-around-statements.ShortStatementLines: 0
+  # Classes
+  readability-identifier-naming.ClassCase: lower_case
+  readability-identifier-naming.ClassConstantCase: lower_case
+  readability-identifier-naming.ClassConstantSuffix: _
+  # ----------------
+  # Structs
+  readability-identifier-naming.StructCase: lower_case
+  readability-identifier-naming.StructConstantSuffix: _
+  # ----------------
+  # Members
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MemberSuffix: _
+  # ----------------
+  # Methods
+  readability-identifier-naming.MethodCase: lower_case
+  # ----------------`
+  # Enums
+  readability-identifier-naming.EnumCase: lower_case
+  readability-identifier-naming.EnumConstantCase: UPPER_CASE
+  # ----------------
+  # Templates
+  readability-identifier-naming.TemplateParameterCase: CamelCase
+  # ----------------
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+  readability-identifier-naming.ConstantCase: lower_case
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.NamespaceCase: lower_case
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*'
+FormatStyle: none
