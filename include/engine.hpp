@@ -1,5 +1,6 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
+#include "player.hpp"
 #include "state_machine.hpp"
 
 #include <array>
@@ -7,6 +8,7 @@
 #include <ftxui/component/event.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <string>
 #include <utility>
@@ -26,16 +28,24 @@ public:
         DEBUG_INFO = 1U << 1U // TODO: Implement
     };
 
+    static ftxui::Element return_center_text(char const* msg, ftxui::Color);
     static ftxui::Element return_center_vbox(ftxui::Component& component);
-    void                  s_keyboard();
     [[nodiscard]] bool    check_flag(flag_render fl) const;
+    void                  display_warning(char const* msg);
+    void                  input_name();
+    bool                  s_keyboard_menu(ftxui::Event const& ev);
+    bool                  s_keyboard_play(ftxui::Event const& ev);
+    bool                  s_keyboard_exit(ftxui::Event const& ev);
+    bool                  s_keyboard(ftxui::Event const& ev);
     void                  s_render_state();
+    void                  s_render_usernames();
     void                  s_render();
     static std::string    get_code(ftxui::Event const& ev);
     void                  menu_about();
     void                  menu();
     void                  play();
-    void                  exit();
+    void                  ask_exit();
+    void                  quit();
     void                  run();
 
 
@@ -59,14 +69,19 @@ private:
         YES,
         NO,
         BACK,
+        SAVE,
+        OK,
         SIZE
     };
-    static constexpr std::array<char const*, 6> labels_{
-        "        PLAY        ", "        ABOUT        ",
-        "        EXIT        ", "        YES        ",
-        "        NO        ",   "        BACK        "
+    static constexpr std::array<char const*, 8> labels_{
+        "        PLAY        ", "        ABOUT        ", "        EXIT        ",
+        "        YES        ",  "        NO        ",    "        BACK        ",
+        "        SAVE        ", "        OK        "
     };
     static_assert(labels_.size() == std::to_underlying(label_idx::SIZE));
+
+    // Player
+    player player_;
 };
 
 #endif
