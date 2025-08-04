@@ -10,6 +10,7 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,20 +34,23 @@ public:
     [[nodiscard]] bool    check_flag(flag_render fl) const;
     void                  display_warning(char const* msg);
     void                  input_name();
-    bool                  s_keyboard_menu(ftxui::Event const& ev);
-    bool                  s_keyboard_play(ftxui::Event const& ev);
-    bool                  s_keyboard_exit(ftxui::Event const& ev);
-    bool                  s_keyboard(ftxui::Event const& ev);
-    void                  s_render_state();
-    void                  s_render_usernames();
-    void                  s_render();
-    static std::string    get_code(ftxui::Event const& ev);
-    void                  menu_about();
-    void                  menu();
-    void                  play();
-    void                  ask_exit();
-    void                  quit();
-    void                  run();
+    bool
+    s_keyboard_menu(ftxui::Event const& ev, std::function<void()> const& exit);
+    bool
+    s_keyboard_play(ftxui::Event const& ev, std::function<void()> const& exit);
+    bool
+    s_keyboard_exit(ftxui::Event const& ev, std::function<void()> const& exit);
+    bool s_keyboard(ftxui::Event const& ev, std::function<void()> const& exit);
+    void s_render_state();
+    void s_render_usernames();
+    void s_render();
+    static std::string get_code(ftxui::Event const& ev);
+    void               menu_about();
+    void               menu();
+    void               play();
+    void               ask_exit();
+    void               quit(std::function<void()> const& exit);
+    void               run();
 
 
     [[nodiscard]] state_machine& state() { return state_; }

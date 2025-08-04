@@ -17,6 +17,7 @@
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -77,10 +78,6 @@ void engine::input_name() {
     input_name |= CatchEvent([this](Event const& ev) {
         // Max size of input 12 characters, should not contain
         // '\n' character
-        if (s_keyboard(ev)) {
-            screen_.ExitLoopClosure()();
-            return true;
-        }
         return (ev.is_character() && player_.get_username().size() >= 12) ||
             ev.character().contains('\n');
     });
@@ -123,18 +120,23 @@ void engine::input_name() {
     screen_.Loop(renderer);
 }
 
-bool engine::s_keyboard_menu(ftxui::Event const& ev) {
+bool engine::s_keyboard_menu(
+    ftxui::Event const& ev, std::function<void()> const& exit
+) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
         state_ = state::exit{};
+        exit();
         return true;
     }
     return false;
 }
 
-bool engine::s_keyboard_play(ftxui::Event const& ev) {
+bool engine::s_keyboard_play(
+    ftxui::Event const& ev, std::function<void()> const& exit
+) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
         state_ = state::menu{};
-        screen_.ExitLoopClosure()();
+        exit();
         return true;
     }
 
@@ -147,27 +149,32 @@ bool engine::s_keyboard_play(ftxui::Event const& ev) {
     } else if (ev == Event::F12) {
         state_flag_ ^= flag_render::STATE;
     }
-    if (state_ != state::play{}) { screen_.ExitLoopClosure()(); }
+    if (state_ != state::play{}) {
+        exit();
+        return true;
+    }
 
     return false;
 }
 
-bool engine::s_keyboard_exit(ftxui::Event const& ev) {
+bool engine::s_keyboard_exit(
+    ftxui::Event const& ev, std::function<void()> const& exit
+) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
-        quit();
+        quit(exit);
         return true;
     }
     return false;
 }
 
-bool engine::s_keyboard(Event const& ev) {
+bool engine::s_keyboard(Event const& ev, std::function<void()> const& exit) {
     keys_.emplace_back(ev);
 
     return std::visit(
         overloaded{
-            [this, &ev](state::menu) { return s_keyboard_menu(ev); },
-            [this, &ev](state::play) { return s_keyboard_play(ev); },
-            [this, &ev](state::exit) { return s_keyboard_exit(ev); },
+            [&](state::menu) { return s_keyboard_menu(ev, exit); },
+            [&](state::play) { return s_keyboard_play(ev, exit); },
+            [&](state::exit) { return s_keyboard_exit(ev, exit); },
         },
         state_.get_variant()
     );
@@ -197,6 +204,7 @@ void engine::s_render_state() {
         auto state_str{fmt::format("STATE: {}", fmt::to_string(state_.str_v()))
         };
 
+
         for (std::size_t idx{}; idx < state_str.size(); ++idx) {
             auto& p = screen_.PixelAt(
                 screen_.dimx() - static_cast<int>(std::ssize(state_str)),
@@ -225,7 +233,8 @@ void engine::menu_about() {
     // TODO:
     auto button = Horizontal({Button(
         labels_[std::to_underlying(label_idx::BACK)],
-        [this]() { screen_.Exit(); }, ButtonOption::Animated(Color::GrayDark)
+        [this]() { screen_.ExitLoopClosure()(); },
+        ButtonOption::Animated(Color::GrayDark)
     )});
 
     auto component = Renderer(button, [&button]() {
@@ -248,7 +257,7 @@ void engine::menu() {
              labels_[std::to_underlying(PLAY)],
              [this]() {
                  state_ = state::play{};
-                 screen_.Exit();
+                 screen_.ExitLoopClosure()();
              },
              ButtonOption::Animated(Color::GrayLight)
          ),
@@ -258,16 +267,16 @@ void engine::menu() {
              [this]() {
                  // TODO:
                  menu_about();
-                 screen_.Exit();
+                 screen_.ExitLoopClosure()();
              },
              ButtonOption::Animated(Color::GrayDark)
          ),
          // EXIT Button
          Button(
-             labels_[std::to_underlying(label_idx::EXIT)],
+             labels_[std::to_underlying(EXIT)],
              [this]() {
                  state_ = state::exit{};
-                 screen_.Exit();
+                 screen_.ExitLoopClosure()();
              },
              ButtonOption::Animated(Color::GrayDark)
          )}
@@ -278,11 +287,7 @@ void engine::menu() {
     });
 
     component |= CatchEvent([this](Event const& ev) {
-        if (s_keyboard(ev)) {
-            screen_.ExitLoopClosure()();
-            return true;
-        }
-        return false;
+        return s_keyboard(ev, screen_.ExitLoopClosure());
     });
 
     screen_.Loop(component);
@@ -320,7 +325,9 @@ void engine::play() {
 
     component |= border;
 
-    component |= CatchEvent([this](Event const& ev) { return s_keyboard(ev); });
+    component |= CatchEvent([this](Event const& ev) {
+        return s_keyboard(ev, screen_.ExitLoopClosure());
+    });
 
     // TODO: Should be there loop ?...
     screen_.Loop(component);
@@ -332,7 +339,7 @@ void engine::ask_exit() {
         {Button(
              labels_[std::to_underlying(label_idx::YES)],
              [this]() {
-                 quit();
+                 quit(screen_.ExitLoopClosure());
                  return true;
              },
              ButtonOption::Animated(Color::White)
@@ -357,7 +364,7 @@ void engine::ask_exit() {
     });
 
     auto component = CatchEvent(renderer, [this](Event const& ev) {
-        return s_keyboard(ev);
+        return s_keyboard(ev, screen_.ExitLoopClosure());
     });
 
     screen_.Loop(component);
@@ -365,10 +372,10 @@ void engine::ask_exit() {
     // LOG("EXIT");
 }
 
-void engine::quit() {
+void engine::quit(std::function<void()> const& exit) {
     running_ = false;
     state_   = state::exit{};
-    screen_.ExitLoopClosure()();
+    exit();
 }
 
 void engine::run() {
