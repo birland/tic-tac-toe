@@ -63,18 +63,15 @@ struct overloaded : Ts... { // NOLINT(altera-*, fuchsia-*)
     using Ts::operator()...;
 };
 
-constexpr unsigned max_button_size{9};
-
 engine::engine() :
-    screen_(ftxui::ScreenInteractive::Fullscreen()), config_("config.ini"),
+    screen_(ftxui::ScreenInteractive::FitComponent()), config_("config.ini"),
     players_(
         {player(
              config_.get_username(), config_.get_color(), config_.get_symbol()
          ),
          player("Enemy", Color::Red, config_.get_symbol() == 'X' ? 'O' : 'X')}
     ),
-    options_(&config_, &screen_, &players_),
-    board_(max_button_size, &players_) {
+    options_(&config_, &screen_, &players_), board_(&players_) {
     keys_.reserve(500);
     s_create_game();
 }
@@ -87,7 +84,7 @@ engine::button_style(int size /* std::function<void()> on_click*/) {
     option.animated_colors.background.Set(Color::GrayDark, Color::White);
     option.animated_colors.foreground.Set(Color::White, Color::Green);
     option.transform = [size](ftxui::EntryState const& es) {
-        auto element = text(es.label) | ftxui::center | bold |
+        auto element = text(es.label) | center | bold |
             ftxui::size(ftxui::WIDTH, ftxui::EQUAL, size) |
             ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, size / 3);
 
@@ -105,7 +102,7 @@ void engine::input() {
 
     auto input  = options_.get_input_name();
     auto toggle = options_.get_toggle_symbol();
-    auto button = options_.get_save_button(screen_);
+    auto button = options_.get_save_button(screen_.ExitLoopClosure());
 
     auto containers = Vertical({
         input,
@@ -124,7 +121,14 @@ void engine::input() {
             separator(),
             filler(),
             hbox(
-                {text("your username is: " + players_.first.get_username()) |
+                {text(
+                     "your current username is: " +
+                     players_.first.get_username()
+                 ) |
+                 border | bold}
+            ),
+            hbox(
+                {text("your new username is: " + options_.get_temp_str()) |
                  border | bold}
             ),
             separator(),
@@ -137,7 +141,7 @@ void engine::input() {
     });
 
     auto component = CatchEvent(renderer, [this](auto const& ev) {
-        if (ev == Event::Return) {
+        if (ev == Event::Return && !players_.first.get_username().empty()) {
             screen_.ExitLoopClosure()();
             return true;
         }
@@ -148,14 +152,16 @@ void engine::input() {
     screen_.Loop(component);
 
     // Save new name to the config file
-    config_.replace(config_.get_username(), players_.first.get_username());
+    std::string_view old_username = config_.get_username();
+    std::string_view new_username = players_.first.get_username();
+    config_.replace("username", old_username, new_username);
 
     // Save new symbol to the config file
-    config_.replace(
-        players_.first.get_symbol_str_v(),
-        options_.get_toggle_entries(
-        )[static_cast<std::size_t>(options_.get_selector())]
-    );
+    std::string_view from_replace = players_.first.get_symbol_str_v();
+    std::string_view to_replace   = options_.get_toggle_entries(
+    )[static_cast<std::size_t>(options_.get_selector())];
+
+    config_.replace("symbol", from_replace, to_replace);
 }
 
 bool engine::s_keyboard_menu(
@@ -211,7 +217,7 @@ bool engine::s_keyboard_exit(
     return false;
 }
 
-bool engine::s_keyboard(Event const& ev, std::function<void()> const& exit) {
+bool engine::s_keyboard(Event const& ev, std::function<void()> exit) {
     keys_.emplace_back(ev);
 
     return std::visit(
@@ -253,7 +259,7 @@ Component engine::component_debug() const {
 void engine::s_reset_game() { s_create_game(); }
 
 void engine::s_create_game() {
-    board_ = board(max_button_size, &players_);
+    board_ = board(&players_);
 
     players_.first = player(
         config_.get_username(), config_.get_color(), config_.get_symbol()
@@ -337,7 +343,7 @@ void engine::menu() {
              labels_[std::to_underlying(EXIT)],
              [this]() {
                  state_ = state::exit{};
-                 screen_.ExitLoopClosure()();
+                 screen_.Exit();
              },
              button_style(button_size)
          )}
@@ -374,7 +380,8 @@ void engine::play() {
     //     canvases.emplace_back(100, 100);
     //     LOG(fmt::to_string(buttons[idx]->Index()));
     //     canvases[idx].DrawText(
-    //         0, 0, fmt::to_string(buttons[idx]->Index()), player_.get_color()
+    //         0, 0, fmt::to_string(buttons[idx]->Index()),
+    //         player_.get_color()
     //     );
     // }
     c.DrawText(0, 0, "X", [this](ftxui::Pixel& p) {

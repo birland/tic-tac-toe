@@ -1,7 +1,9 @@
 #include "config.hpp"
 #include <cstdio>
 #include <cstring>
+#include <exception>
 #include <filesystem>
+#include <fmt/base.h>
 #include <fmt/format.h>
 #include <fstream>
 #include <ios>
@@ -36,32 +38,53 @@ config::config(std::filesystem::path const& path) :
 // Initializing default config.ini
 void config::init() {
     if (!std::filesystem::exists(file_path_)) {
-        std::ofstream file{file_path_, std::ios::binary | std::ios::out};
-        if (!file.is_open()) {
-            throw std::runtime_error(
-                fmt::format("Can't open {}", file_path_.c_str())
-            );
-        }
-
-        for (auto str_v : default_data_) { file << str_v << '\n'; }
-
-        file.close();
+        generate_default();
     } else {
         was_generated_ = true;
     }
 }
 
 void config::parse_data(std::string_view key, string_view data) {
-    if (key == "username") {
-        username_ = data;
-    } else if (key == "color") {
-        color_ = data;
-    } else if (key == "symbol") {
-        symbol_ = data.front();
+    try {
+        if (data.empty()) { throw std::runtime_error("Empty data"); }
+
+        if (key == "username") {
+            username_ = data;
+        } else if (key == "color") {
+            color_ = data;
+        } else if (key == "symbol") {
+            symbol_ = data.front();
+        } else {
+            throw std::runtime_error("Corrupted config.ini");
+        }
+    } catch (std::exception const& ex) {
+        fmt::println(stderr, "{}", ex.what());
+        generate_default();
     }
 }
+void config::generate_default() {
+    fmt::println(stderr, "Generated default config.");
 
-void config::replace(std::string_view source, std::string_view destination) {
+    if (std::filesystem::exists(file_path_)) {
+        auto err = std::remove(file_path_.c_str());
+        if (err != 0) { throw std::runtime_error("Failed to remove file."); }
+    }
+
+    std::ofstream file{file_path_, std::ios::binary | std::ios::out};
+    if (!file.is_open()) {
+        throw std::runtime_error(
+            fmt::format("Can't open {}", file_path_.c_str())
+        );
+    }
+
+    for (auto str_v : default_data_) { file << str_v << '\n'; }
+
+    file.close();
+}
+
+void config::replace(
+    std::string_view key, std::string_view source, std::string_view destination
+) {
     auto old_file_path = (file_path_.string() + ".temp");
 
     auto err = std::rename(file_path_.c_str(), old_file_path.c_str());
@@ -85,15 +108,20 @@ void config::replace(std::string_view source, std::string_view destination) {
         );
     }
 
-    std::string            line;
-    [[maybe_unused]] auto* buffer = old_file.rdbuf();
-    while (std::getline(old_file, line, '\n')) {
-        auto pos = line.find(source);
-        if (pos != std::string::npos) {
-            line.replace(pos, source.size(), destination);
-            new_file << line << '\n';
-            continue;
+    std::string line;
+    std::string token;
+    while (std::getline(old_file >> std::ws, line, ':') &&
+           std::getline(old_file >> std::ws, token)) {
+        if (key == line) {
+            auto pos = token.find(source);
+            if (pos != std::string::npos) {
+                token.replace(pos, token.size(), destination);
+                line += ": " + token;
+                new_file << line << '\n';
+                continue;
+            }
         }
+        line += ": " + token;
         new_file << line << '\n';
     }
 

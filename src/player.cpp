@@ -4,13 +4,14 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 
 player::player(std::string_view name, ftxui::Color color, char symbol) :
-    name_(name), color_(color), state_(NONE), symbol_(symbol) {}
+    username_(name), color_(color), state_(NONE), symbol_(symbol) {}
 
-std::string_view player::get_username() const { return name_; }
+std::string_view player::get_username() const { return username_; }
 
-std::string& player::get_username() { return name_; }
+std::string& player::get_username() { return username_; }
 
 ftxui::Color const& player::get_color() const { return color_; }
 
@@ -29,3 +30,5 @@ char player::get_symbol() const { return symbol_; }
 }
 
 void player::set_symbol(char ch) { symbol_ = ch; }
+
+void player::set_username(std::string temp) { username_ = std::move(temp); }

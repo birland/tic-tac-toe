@@ -17,8 +17,14 @@
 #include <utility>
 #include <vector>
 
-using ftxui::GREATER_THAN;
+using ftxui::ButtonOption;
+using ftxui::center;
+using ftxui::Color;
+using ftxui::EntryState;
+using ftxui::EQUAL;
+using ftxui::HEIGHT;
 using ftxui::text;
+using ftxui::WIDTH;
 using ftxui::Container::Vertical;
 using std::to_underlying;
 
@@ -27,26 +33,9 @@ options::options(
     std::pair<player, player>* const players
 ) :
     config_(config), screen_(screen), players_(players),
-    selector_(config_->get_symbol() == 'X' ? 0 : 1) {
-    // ButtonOption initialization
-    button_option_ = ftxui::ButtonOption();
-    auto size      = 5;
-    // button_option_.on_click  = on_click;
-    button_option_.animated_colors.background.Set(
-        ftxui::Color::Black, ftxui::Color::Blue
-    );
-    button_option_.animated_colors.foreground.Set(
-        ftxui::Color::Black, ftxui::Color::Blue
-    );
-    button_option_.transform = [size](ftxui::EntryState const& es) {
-        auto element = text(es.label) | color(ftxui::Color::Green) |
-            ftxui::bold | ftxui::center |
-            ftxui::size(ftxui::HEIGHT, GREATER_THAN, size);
-
-        if (es.focused) { element |= color(ftxui::Color::Green); }
-
-        return element | color(ftxui::Color::Blue) | ftxui::center;
-    };
+    default_button_option_(button_style()),
+    selector_(config_->get_symbol() == 'X' ? 0 : 1),
+    temp_(players_->first.get_username()) {
 
     // Toggle symbol
     toggle_symbol_ = Vertical({toggles_});
@@ -54,10 +43,28 @@ options::options(
 
 void options::update() { selector_ = config_->get_symbol() == 'X' ? 0 : 1; }
 
+ftxui::ButtonOption options::button_style(int width, int height) {
+    ButtonOption option = ButtonOption::Simple();
+    // button_option_.on_click  = on_click;
+    option.animated_colors.background.Set(Color::Black, Color::Blue);
+    option.animated_colors.foreground.Set(Color::Black, Color::Blue);
+    option.transform = [width, height](EntryState const& es) {
+        auto element = text(es.label) | center |
+            ftxui::size(WIDTH, EQUAL, width) |
+            ftxui::size(HEIGHT, ftxui::EQUAL, height);
+
+        if (es.focused) { element |= color(Color::Green); }
+
+        return element | center;
+    };
+    return option;
+}
 
 ftxui::Component options::get_input_name() { return input_name_; }
 
-ftxui::ButtonOption options::get_button_option() { return button_option_; }
+ftxui::ButtonOption options::get_button_option() {
+    return default_button_option_;
+}
 
 ftxui::Component options::get_toggle_symbol() { return toggle_symbol_; }
 
@@ -67,42 +74,44 @@ std::vector<std::string> const& options::get_toggle_entries() {
 
 int& options::get_selector() { return selector_; }
 
-ftxui::Component options::get_save_button(ftxui::ScreenInteractive& screen) {
+ftxui::Component options::get_save_button(std::function<void()> exit) {
     save_button_ = ftxui::Container::Vertical({Button(
         labels_[std::to_underlying(label_idx::SAVE)],
         [&, this]() {
-            if (!players_->first.get_username().empty()) {
-                screen.ExitLoopClosure()();
+            if (!temp_.empty()) {
+                players_->first.set_username(temp_);
+                exit();
             } else {
-                display_warning("Username can't be empty.");
+                display_warning("Username can't be empty.", exit);
             }
         },
-        button_option_
+        default_button_option_
     )});
 
     return save_button_;
 }
 
+std::string const& options::get_temp_str() { return temp_; }
+
+
 void options::input_name_events() {
-    input_name_ =
-        ftxui::Input(&players_->first.get_username(), "click here to write: ");
+    input_name_ = ftxui::Input(
+        &temp_, "click here to write: ", ftxui::InputOption::Spacious()
+    );
     input_name_ |= ftxui::CatchEvent([this](ftxui::Event const& ev) {
-        // Max size of input 12 characters, should not contain
-        // '\n' character
-        return (ev.is_character() && players_->first.get_username().size() >= 12
-               ) ||
+        // Max size of input 12 characters
+        return (ev.is_character() && temp_.size() >= 12) ||
             ev == ftxui::Event::Return;
     });
 }
 
-void options::display_warning(char const* msg) {
+void options::display_warning(char const* msg, std::function<void()> exit) {
     auto button = Vertical({Button(
-        labels_[to_underlying(label_idx::OK)],
-        [this] { screen_->ExitLoopClosure(); },
-        ftxui::ButtonOption::Animated(ftxui::Color::Red)
+        labels_[to_underlying(label_idx::BACK)], [&exit] { exit(); },
+        button_style(25, 2)
     )});
 
-    auto component = Renderer(button, [&button, &msg]() {
+    auto component = Renderer(button, [&button, msg]() {
         return ftxui::vbox({return_center_text(msg), return_center_vbox(button)}
         );
     });

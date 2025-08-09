@@ -24,11 +24,13 @@ public:
     [[nodiscard]] char                get_symbol() const;
     [[nodiscard]] std::string_view    get_symbol_str_v() const;
     void                              set_symbol(char ch);
+    // Moves string
+    void set_username(std::string temp);
 
     [[nodiscard]] player_state state() const;
 
 private:
-    std::string  name_;
+    std::string  username_;
     ftxui::Color color_;
     player_state state_{};
     char         symbol_{};

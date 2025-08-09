@@ -33,17 +33,17 @@ public:
         DEBUG_INFO = 1U << 1U // TODO: Implement
     };
 
-    ftxui::ButtonOption button_style(int size);
-    [[nodiscard]] bool  check_flag(flag_render fl) const;
-    void                display_warning(char const* msg);
-    void                input();
+    static ftxui::ButtonOption button_style(int size);
+    [[nodiscard]] bool         check_flag(flag_render fl) const;
+    void                       display_warning(char const* msg);
+    void                       input();
     bool
     s_keyboard_menu(ftxui::Event const& ev, std::function<void()> const& exit);
     bool
     s_keyboard_play(ftxui::Event const& ev, std::function<void()> const& exit);
     bool
     s_keyboard_exit(ftxui::Event const& ev, std::function<void()> const& exit);
-    bool s_keyboard(ftxui::Event const& ev, std::function<void()> const& exit);
+    bool s_keyboard(ftxui::Event const& ev, std::function<void()> exit);
     [[nodiscard]] ftxui::Component component_debug() const;
     void                           s_render_usernames();
     void                           s_reset_game();

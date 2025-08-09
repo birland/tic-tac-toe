@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28.3)
 project(
   tic-tac-toe
-  VERSION 0.0.1
+  VERSION 0.10.0
   LANGUAGES CXX)
 
 # Reference:
@@ -30,32 +30,36 @@ if(UNIX)
 endif()
 message("Build type: ${CMAKE_BUILD_TYPE}")
 
+set(USE_CPM_PACKAGES_ENABLED ON)
+set(PROFILER_ENABLED OFF)
 set(STATIC_LINKING_ENABLED OFF)
 
-# download CPM.cmake
-file(
-  DOWNLOAD
-  https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.40.8/CPM.cmake
-  ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake
-  EXPECTED_HASH
-    SHA256=78ba32abdf798bc616bab7c73aac32a17bbd7b06ad9e26a6add69de8f3ae4791)
-include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
+if(USE_CPM_PACKAGES_ENABLED)
+  # download CPM.cmake
+  file(
+    DOWNLOAD
+    https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.40.8/CPM.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake
+    EXPECTED_HASH
+      SHA256=78ba32abdf798bc616bab7c73aac32a17bbd7b06ad9e26a6add69de8f3ae4791)
+  include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
-# FTXUI
-cpmaddpackage("gh:arthursonzogni/ftxui#v6.1.9")
+  # FTXUI
+  cpmaddpackage("gh:arthursonzogni/ftxui#v6.1.9")
 
-# Boost Library
+  # Boost Library
 
-# cpmaddpackage("gh:boostorg/boost#boost-1.88.0")
+  # cpmaddpackage("gh:boostorg/boost#boost-1.88.0")
 
-# {GSL} Guidelines Support Library
-cpmaddpackage("gh:microsoft/GSL#v4.1.0")
+  # {GSL} Guidelines Support Library
+  cpmaddpackage("gh:microsoft/GSL#v4.1.0")
 
-# {fmt} format
-cpmaddpackage("gh:fmtlib/fmt#11.2.0")
+  # {fmt} format
+  cpmaddpackage("gh:fmtlib/fmt#11.2.0")
 
-# {modern scanf}
-cpmaddpackage("gh:eliaskosunen/scnlib#v4.0.1")
+  # {modern scanf}
+  cpmaddpackage("gh:eliaskosunen/scnlib#v4.0.1")
+endif()
 
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
      "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
@@ -89,15 +93,6 @@ set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
-# CLANG-TIDY MAKE SLOWING COMPILE TIMES (X30 SLOWER)
-# find_program(CLANG_TIDY_EXECUTABLE NAMES "clang-tidy" REQUIRED) if (MSVC) #
-# /EHsc for enable exceptions set(CLANG_TIDY_COMMAND "${CLANG_TIDY_EXECUTABLE}"
-# "--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy" "--extra-arg=/EHsc" )
-# else() set(CLANG_TIDY_COMMAND "${CLANG_TIDY_EXECUTABLE}"
-# "--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy") endif ()
-# set_target_properties(${PROJECT_NAME} PROPERTIES CXX_CLANG_TIDY
-# "${CLANG_TIDY_COMMAND}")
-# /CLANG-TIDY
 if(UNIX)
   set(RELEASE_OPTIONS
       "-O3 -Wall -Wextra -fno-delete-null-pointer-checks -fno-strict-overflow
@@ -146,7 +141,6 @@ add_dependencies(${PROJECT_NAME} copy_assets copy_compile_commands
                  copy_clang_tidy_ignore_checks)
 target_sources(${PROJECT_NAME} PUBLIC ${SOURCE_FILES} ${HEADER_FILES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include)
-# Include utility libraries, like xoshiro
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/utils)
 target_compile_options(${PROJECT_NAME}
                        PRIVATE $<$<CONFIG:DEBUG>:SHELL:${DEBUG_OPTIONS}>)
@@ -175,14 +169,6 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
   )
 endif()
 
-set(PROFILER_ENABLED OFF)
-
-if(PROFILER_ENABLED)
-  cpmaddpackage("gh:wolfpld/tracy#v0.12.2")
-  option(TRACY_ENABLE "" ON)
-  target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
-endif()
-
 if(WIN32)
   add_custom_command(
     TARGET ${PROJECT_NAME}
@@ -196,6 +182,18 @@ if(WIN32)
 elseif(UNIX)
   find_package(Freetype)
   target_link_libraries(${PROJECT_NAME} PRIVATE X11 freetype)
+endif()
+
+if(PROFILER_ENABLED)
+  cpmaddpackage("gh:wolfpld/tracy#v0.12.2")
+  option(TRACY_ENABLE "" ON)
+  target_link_libraries(${PROJECT_NAME} PUBLIC Tracy::TracyClient)
+endif()
+
+if(NOT USE_CPM_PACKAGES_ENABLED)
+  find_package(fmt CONFIG REQUIRED)
+  find_package(Microsoft.GSL CONFIG REQUIRED)
+  find_package(scn CONFIG REQUIRED)
 endif()
 
 if(NOT STATIC_LINKING_ENABLED)
@@ -220,4 +218,4 @@ else()
             "-static")
 endif()
 
-install(TARGETS ${PROJECT_NAME})
+# install(TARGETS ${PROJECT_NAME})
