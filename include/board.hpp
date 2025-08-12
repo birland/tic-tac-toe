@@ -7,6 +7,7 @@
 #include <ftxui/screen/color.hpp>
 #include <ftxui/util/ref.hpp>
 #include <functional>
+#include <string>
 #include <utility>
 #include "player.hpp"
 
@@ -20,7 +21,7 @@ public:
     ~board()                       = default;
     using array_2d                 = std::array<std::array<char, 3>, 3>;
     using buttons_2d               = std::array<ftxui::Components, 3>;
-    using board_2d                 = std::array<std::array<char, 3>, 3>;
+    using board_2d                 = std::array<std::array<std::string, 3>, 3>;
 
     void                             update(std::function<void()> const& exit);
     board::buttons_2d&               get_buttons();
@@ -39,8 +40,8 @@ private:
 
     // std::array<std::string, 9>      board_{" ", " ", " ", " ", " ",
     //                                   " ", " ", " ", " "};
-    // board_2d board_{{{' ', ' ', ' '}}, {' ', ' ', ' '}, {' ', ' ', ' '}};
-    board_2d board_{{{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}}};
+    // board_2d board_{{{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}}};
+    board_2d board_{{{" ", " ", " "}, {" ", " ", " "}, {" ", " ", " "}}};
 };
 
 #endif

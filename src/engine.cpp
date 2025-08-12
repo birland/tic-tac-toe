@@ -1,10 +1,4 @@
 #include "engine.hpp"
-#include "board.hpp"
-#include "box_utils.hpp"
-#include "label_buttons.hpp"
-#include "player.hpp"
-#include "state_machine.hpp"
-
 #include <array>
 #include <cassert>
 #include <cctype>
@@ -27,12 +21,16 @@
 #include <ftxui/screen/pixel.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <functional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
+#include "board.hpp"
+#include "box_utils.hpp"
+#include "label_buttons.hpp"
+#include "player.hpp"
+#include "state_machine.hpp"
 
 using ftxui::bold;
 using ftxui::border;
@@ -71,7 +69,7 @@ engine::engine() :
          ),
          player("Enemy", Color::Red, config_.get_symbol() == 'X' ? 'O' : 'X')}
     ),
-    options_(&config_, &screen_, &players_), board_(&players_) {
+    options_(&config_, &players_), board_(&players_) {
     keys_.reserve(500);
     s_create_game();
 }
@@ -97,12 +95,13 @@ engine::button_style(int size /* std::function<void()> on_click*/) {
 }
 
 // Input name, toggle set symbol
-void engine::input() {
+void engine::menu_options() {
+    auto screen = ftxui::ScreenInteractive::FitComponent();
     options_.input_name_events();
 
     auto input  = options_.get_input_name();
     auto toggle = options_.get_toggle_symbol();
-    auto button = options_.get_save_button(screen_.ExitLoopClosure());
+    auto button = options_.get_save_button(screen.ExitLoopClosure());
 
     auto containers = Vertical({
         input,
@@ -140,16 +139,7 @@ void engine::input() {
         });
     });
 
-    auto component = CatchEvent(renderer, [this](auto const& ev) {
-        if (ev == Event::Return && !players_.first.get_username().empty()) {
-            screen_.ExitLoopClosure()();
-            return true;
-        }
-        return ev == Event::Return;
-    });
-
-
-    screen_.Loop(component);
+    screen.Loop(renderer);
 
     // Save new name to the config file
     std::string_view old_username = config_.get_username();
@@ -164,30 +154,25 @@ void engine::input() {
     config_.replace("symbol", from_replace, to_replace);
 }
 
-bool engine::s_keyboard_menu(
-    ftxui::Event const& ev, std::function<void()> const& exit
-) {
+bool engine::s_keyboard_menu(ftxui::Event const& ev) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
         state_ = state::exit{};
-        exit();
+        screen_.Exit();
         return true;
     }
     return false;
 }
 
-bool engine::s_keyboard_play(
-    ftxui::Event const& ev, std::function<void()> const& exit
-) {
+bool engine::s_keyboard_play(ftxui::Event const& ev) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
         state_ = state::menu{};
-        exit();
+        screen_.Exit();
         return true;
     }
 
     if (ev == Event::r) {
-        //
         s_reset_game();
-        exit();
+        screen_.Exit();
     }
 
     if (ev == Event::F1) {
@@ -200,31 +185,29 @@ bool engine::s_keyboard_play(
         state_flag_ ^= flag_render::STATE;
     }
     if (state_ != state::play{}) {
-        exit();
+        screen_.Exit();
         return true;
     }
 
     return false;
 }
 
-bool engine::s_keyboard_exit(
-    ftxui::Event const& ev, std::function<void()> const& exit
-) {
+bool engine::s_keyboard_exit(ftxui::Event const& ev) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
-        quit(exit);
+        quit();
         return true;
     }
     return false;
 }
 
-bool engine::s_keyboard(Event const& ev, std::function<void()> exit) {
+bool engine::s_keyboard(Event const& ev) {
     keys_.emplace_back(ev);
 
     return std::visit(
         overloaded{
-            [&](state::menu) { return s_keyboard_menu(ev, exit); },
-            [&](state::play) { return s_keyboard_play(ev, exit); },
-            [&](state::exit) { return s_keyboard_exit(ev, exit); },
+            [&](state::menu) { return s_keyboard_menu(ev); },
+            [&](state::play) { return s_keyboard_play(ev); },
+            [&](state::exit) { return s_keyboard_exit(ev); },
         },
         state_.get_variant()
     );
@@ -281,16 +264,17 @@ std::string engine::get_code(Event const& ev) {
     return codes;
 }
 
-void engine::game_logic(auto& window_color) {
+void engine::update_game_logic() {
     // TODO:
-    window_color = Color::Green;
-    switch (players_.first.state()) {
-        case player::WON:
-        case player::LOSED:
-        case player::DRAW:
-        case player::NONE: break;
-        default: throw std::runtime_error("Unreachable player state.");
-    }
+    std::visit(
+        overloaded{
+            // TODO:
+            [](player::state::won) {},
+            [](player::state::losed) {},
+            [](player::state::draw) {},
+        },
+        players_.first.get_variant()
+    );
 }
 
 void engine::menu_about(int button_size) {
@@ -326,16 +310,13 @@ void engine::menu() {
          // ABOUT Button
          Button(
              labels_[std::to_underlying(ABOUT)],
-             [this, button_size]() {
-                 menu_about(button_size);
-                 screen_.ExitLoopClosure()();
-             },
+             [this, button_size]() { menu_about(button_size); },
              button_style(button_size)
 
          ),
          // OPTIONS Button
          Button(
-             labels_[std::to_underlying(OPTIONS)], [this] { input(); },
+             labels_[std::to_underlying(OPTIONS)], [this] { menu_options(); },
              button_style(button_size)
          ),
          // EXIT Button
@@ -353,9 +334,7 @@ void engine::menu() {
         return vbox(return_center_vbox(buttons));
     });
 
-    component |= CatchEvent([this](Event const& ev) {
-        return s_keyboard(ev, screen_.ExitLoopClosure());
-    });
+    component |= CatchEvent([this](Event const& ev) { return s_keyboard(ev); });
 
     screen_.Loop(component);
 }
@@ -364,7 +343,7 @@ void engine::play() {
     // Asking user to input name only on the first launch
     // when config is not generated yet.
     if (players_.first.get_username().empty() || !config_.was_generated()) {
-        input();
+        menu_options();
     }
 
     board_.update(screen_.ExitLoopClosure());
@@ -392,8 +371,8 @@ void engine::play() {
 
     auto doc = canvas(&c) | center | border | center;
 
-    auto window_color = Color::Green;
-    game_logic(window_color);
+    auto const& window_color = Color::Green;
+    update_game_logic();
 
     auto renderer = Renderer(layout, [&] {
         return vbox(
@@ -406,9 +385,7 @@ void engine::play() {
         );
     });
 
-    renderer |= CatchEvent([this](Event const& ev) {
-        return s_keyboard(ev, screen_.ExitLoopClosure());
-    });
+    renderer |= CatchEvent([this](Event const& ev) { return s_keyboard(ev); });
 
     screen_.Loop(renderer);
 }
@@ -417,13 +394,15 @@ void engine::play() {
 // Implement modal dialogue
 // https://github.com/ArthurSonzogni/FTXUI/blob/main/examples/component/modal_dialog.cpp
 void engine::ask_exit() {
+    auto screen = ftxui::ScreenInteractive::Fullscreen();
     int  button_size{10};
     auto buttons = Horizontal(
         // YES Button
         {Button(
              labels_[std::to_underlying(label_idx::YES)],
-             [this]() {
-                 quit(screen_.ExitLoopClosure());
+             [this, &screen]() {
+                 quit();
+                 screen.ExitLoopClosure()();
                  return true;
              },
              button_style(button_size)
@@ -431,9 +410,9 @@ void engine::ask_exit() {
          // NO Button
          Button(
              labels_[std::to_underlying(label_idx::NO)],
-             [this]() {
+             [this, &screen]() {
                  state_ = state_.get_previous_variant();
-                 screen_.ExitLoopClosure()();
+                 screen.ExitLoopClosure()();
              },
              button_style(button_size)
          )}
@@ -447,16 +426,15 @@ void engine::ask_exit() {
     });
 
     auto component = CatchEvent(renderer, [this](Event const& ev) {
-        return s_keyboard(ev, screen_.ExitLoopClosure());
+        return s_keyboard(ev);
     });
 
-    screen_.Loop(component);
+    screen.Loop(component);
 }
 
-void engine::quit(std::function<void()> const& exit) {
+void engine::quit() {
     running_ = false;
     state_   = state::exit{};
-    exit();
 }
 
 void engine::run() {

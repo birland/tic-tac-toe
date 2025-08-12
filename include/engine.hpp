@@ -1,11 +1,5 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
-#include "board.hpp"
-#include "config.hpp"
-#include "options.hpp"
-#include "player.hpp"
-#include "state_machine.hpp"
-
 #include <cstdint>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -14,10 +8,14 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
-#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
+#include "board.hpp"
+#include "config.hpp"
+#include "options.hpp"
+#include "player.hpp"
+#include "state_machine.hpp"
 
 class engine {
 public:
@@ -33,30 +31,27 @@ public:
         DEBUG_INFO = 1U << 1U // TODO: Implement
     };
 
-    static ftxui::ButtonOption button_style(int size);
-    [[nodiscard]] bool         check_flag(flag_render fl) const;
-    void                       display_warning(char const* msg);
-    void                       input();
-    bool
-    s_keyboard_menu(ftxui::Event const& ev, std::function<void()> const& exit);
-    bool
-    s_keyboard_play(ftxui::Event const& ev, std::function<void()> const& exit);
-    bool
-    s_keyboard_exit(ftxui::Event const& ev, std::function<void()> const& exit);
-    bool s_keyboard(ftxui::Event const& ev, std::function<void()> exit);
+    static ftxui::ButtonOption     button_style(int size);
+    [[nodiscard]] bool             check_flag(flag_render fl) const;
+    void                           display_warning(char const* msg);
+    void                           menu_options();
+    bool                           s_keyboard_menu(ftxui::Event const& ev);
+    bool                           s_keyboard_play(ftxui::Event const& ev);
+    bool                           s_keyboard_exit(ftxui::Event const& ev);
+    bool                           s_keyboard(ftxui::Event const& ev);
     [[nodiscard]] ftxui::Component component_debug() const;
     void                           s_render_usernames();
     void                           s_reset_game();
     void                           s_create_game();
 
     static std::string get_code(ftxui::Event const& ev);
-    void               game_logic(auto& window_color);
+    void               update_game_logic();
 
     void menu_about(int button_size);
     void menu();
     void play();
     void ask_exit();
-    void quit(std::function<void()> const& exit);
+    void quit();
     void run();
 
 

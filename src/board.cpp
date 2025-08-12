@@ -2,6 +2,7 @@
 #include "player.hpp"
 
 #include <array>
+#include <cstring>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -13,7 +14,6 @@
 #include <functional>
 #include <string>
 #include <utility>
-#include <vector>
 
 using ftxui::border;
 using ftxui::Button;
@@ -35,10 +35,17 @@ board::board(std::pair<player, player>* players, int button_size) :
 void board::update(std::function<void()> const& exit) {
     for (unsigned col{}; col < buttons_.size(); ++col) {
         for (unsigned row{}; row < buttons_.size(); ++row) {
+            // FIXME:
+            // Selector/active button not working properly when puts a char
             auto& cell   = board_[col][row];
             auto& button = buttons_[col][row];
 
-            if (cell == ' ') {
+            // FIXME:
+            ///////////////////////////////////////////////////////////////////
+            // When set button to the active it's blinking/selector resetting
+            // and wrong button is active.
+            ///////////////////////////////////////////////////////////////////
+            if (cell == " ") {
                 button = Button(
                     &cell,
                     [this, &cell, exit] {

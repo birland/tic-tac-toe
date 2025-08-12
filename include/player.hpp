@@ -1,9 +1,9 @@
 #ifndef PLAYER_HPP
 #define PLAYER_HPP
-#include <cstdint>
 #include <ftxui/screen/color.hpp>
 #include <string>
 #include <string_view>
+#include <variant>
 
 class player {
 public:
@@ -15,7 +15,13 @@ public:
     player& operator=(player&&)      = default;
     ~player()                        = default;
 
-    enum player_state : std::uint8_t { WON, LOSED, DRAW, NONE };
+    struct state {
+        struct won {};
+        struct losed {};
+        struct draw {};
+    };
+
+    using state_variant = std::variant<state::won, state::losed, state::draw>;
 
     [[nodiscard]] std::string_view    get_username() const;
     std::string&                      get_username();
@@ -27,13 +33,15 @@ public:
     // Moves string
     void set_username(std::string temp);
 
-    [[nodiscard]] player_state state() const;
+    state_variant const& get_variant();
+    [[nodiscard]] state  get_state() const;
 
 private:
-    std::string  username_;
-    ftxui::Color color_;
-    player_state state_{};
-    char         symbol_{};
+    std::string                                         username_;
+    ftxui::Color                                        color_;
+    std::variant<state::won, state::losed, state::draw> variant_;
+    struct state                                        state_{};
+    char                                                symbol_{};
 };
 
 #endif

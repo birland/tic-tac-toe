@@ -13,7 +13,7 @@ return_center_text(char const* msg, ftxui::Color col = ftxui::Color::Blue) {
 }
 
 // https://github.com/ArthurSonzogni/FTXUI/blob/main/examples/dom/vbox_hbox.cpp
-inline ftxui::Element return_center_vbox(ftxui::Component& component) {
+inline ftxui::Element return_center_vbox(ftxui::Component const& component) {
     return ftxui::vbox(
         {ftxui::hbox({ftxui::filler(), component->Render(), ftxui::filler()})}
     );

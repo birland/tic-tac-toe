@@ -1,8 +1,7 @@
-#include "engine.hpp"
-
 #include <cstdlib>
 #include <exception>
 #include <fmt/base.h>
+#include "engine.hpp"
 
 int main() {
     try {
