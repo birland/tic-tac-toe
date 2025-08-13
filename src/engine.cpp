@@ -2,6 +2,7 @@
 #include <array>
 #include <cassert>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -12,8 +13,10 @@
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
+#include <ftxui/component/loop.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/canvas.hpp>
+#include <ftxui/dom/deprecated.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/box.hpp>
@@ -23,6 +26,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -38,7 +42,6 @@ using ftxui::Button;
 using ftxui::ButtonOption;
 using ftxui::CatchEvent;
 using ftxui::center;
-using ftxui::Checkbox;
 using ftxui::Color;
 using ftxui::color;
 using ftxui::Component;
@@ -48,7 +51,6 @@ using ftxui::Event;
 using ftxui::filler;
 using ftxui::flex;
 using ftxui::hbox;
-using ftxui::Radiobox;
 using ftxui::Renderer;
 using ftxui::separator;
 using ftxui::text;
@@ -62,7 +64,7 @@ struct overloaded : Ts... { // NOLINT(altera-*, fuchsia-*)
 };
 
 engine::engine() :
-    screen_(ftxui::ScreenInteractive::FitComponent()), config_("config.ini"),
+    main_screen_(ftxui::ScreenInteractive::Fullscreen()), config_("config.ini"),
     players_(
         {player(
              config_.get_username(), config_.get_color(), config_.get_symbol()
@@ -97,7 +99,7 @@ engine::button_style(int size /* std::function<void()> on_click*/) {
 // Input name, toggle set symbol
 void engine::menu_options() {
     auto screen = ftxui::ScreenInteractive::FitComponent();
-    options_.input_name_events();
+    options_.input_name_events(screen.ExitLoopClosure());
 
     auto input  = options_.get_input_name();
     auto toggle = options_.get_toggle_symbol();
@@ -141,7 +143,7 @@ void engine::menu_options() {
 
     screen.Loop(renderer);
 
-    // Save new name to the config file
+    // Save new name and symbol to the config file
     std::string_view old_username = config_.get_username();
     std::string_view new_username = players_.first.get_username();
     config_.replace("username", old_username, new_username);
@@ -151,13 +153,18 @@ void engine::menu_options() {
     std::string_view to_replace   = options_.get_toggle_entries(
     )[static_cast<std::size_t>(options_.get_selector())];
 
+    players_.first.set_symbol(to_replace);
+    // FIXME: Bug when player changing symbol in the options
+    // it's not changed for the enemy
+    players_.second.set_symbol(from_replace);
+
     config_.replace("symbol", from_replace, to_replace);
 }
 
 bool engine::s_keyboard_menu(ftxui::Event const& ev) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
         state_ = state::exit{};
-        screen_.Exit();
+        main_screen_.Exit();
         return true;
     }
     return false;
@@ -166,13 +173,14 @@ bool engine::s_keyboard_menu(ftxui::Event const& ev) {
 bool engine::s_keyboard_play(ftxui::Event const& ev) {
     if (ev == Event::Escape || ev == Event::Character('q')) {
         state_ = state::menu{};
-        screen_.Exit();
+        s_reset_game();
+        main_screen_.Exit();
         return true;
     }
 
     if (ev == Event::r) {
         s_reset_game();
-        screen_.Exit();
+        main_screen_.Exit();
     }
 
     if (ev == Event::F1) {
@@ -181,11 +189,9 @@ bool engine::s_keyboard_play(ftxui::Event const& ev) {
         state_ = state::play{};
     } else if (ev == Event::F3) {
         state_ = state::exit{};
-    } else if (ev == Event::F12) {
-        state_flag_ ^= flag_render::STATE;
     }
     if (state_ != state::play{}) {
-        screen_.Exit();
+        main_screen_.Exit();
         return true;
     }
 
@@ -213,37 +219,9 @@ bool engine::s_keyboard(Event const& ev) {
     );
 }
 
-bool engine::check_flag(flag_render fl) const {
-    return (state_flag_ & fl) != 0U;
-}
-
-
-// TODO:
-// https://github.com/ArthurSonzogni/FTXUI/blob/main/examples/component/gallery.cpp
-Component engine::component_debug() const {
-    std::vector<std::string> entries{"DEBUG_INFO"};
-    int                      debug_menu_selected{};
-    bool                     debug_menu = check_flag(flag_render::DEBUG_INFO);
-
-    auto layout = Vertical(
-        {Checkbox("DEBUG_MENU", &debug_menu),
-         Radiobox(&entries, &debug_menu_selected) | border |
-             ftxui::Maybe(&debug_menu),
-
-         Renderer([] { return text("Test") | color(Color::Red); }) |
-             ftxui::Maybe([&] { return debug_menu_selected == 1; })}
-    );
-
-
-    // return ftxui::Maybe(layout, &debug_menu);
-    return layout;
-}
-
 void engine::s_reset_game() { s_create_game(); }
 
 void engine::s_create_game() {
-    board_ = board(&players_);
-
     players_.first = player(
         config_.get_username(), config_.get_color(), config_.get_symbol()
     );
@@ -252,6 +230,8 @@ void engine::s_create_game() {
     if (players_.first.get_symbol() == 'X') { symbol = 'O'; }
 
     players_.second = player("Enemy", Color::Red, symbol);
+
+    board_ = board(&players_);
 }
 
 std::string engine::get_code(Event const& ev) {
@@ -264,23 +244,90 @@ std::string engine::get_code(Event const& ev) {
     return codes;
 }
 
-void engine::update_game_logic() {
-    // TODO:
+ftxui::Component
+engine::end_game(char const* label, Color color, ftxui::Component& buttons) {
+    auto component = Renderer(buttons, [&buttons, color, label] {
+        return vbox(
+            return_center_text(label, color), return_center_vbox(buttons)
+        );
+    });
+
+    return component;
+}
+
+ftxui::Component engine::game_result_buttons(std::function<void()> exit) {
+    constexpr int button_size = 12;
+    auto          buttons     = Horizontal(
+        {Button(
+             "AGAIN",
+             [this, &exit] {
+                 s_reset_game();
+                 exit();
+             },
+             button_style(button_size)
+         ),
+                      Button(
+             "EXIT",
+             [this, &exit] {
+                 s_reset_game();
+                 state_ = state::menu{};
+                 exit();
+                 stop_signal_ = true;
+             },
+             button_style(button_size)
+         )}
+    );
+
+    return buttons;
+}
+
+void engine::show_game_result(player::state_variant st) {
+    // auto screen = ftxui::ScreenInteractive::Fullscreen();
+    auto buttons = game_result_buttons(main_screen_.ExitLoopClosure());
+    ftxui::Component component;
+
     std::visit(
         overloaded{
-            // TODO:
-            [](player::state::won) {},
-            [](player::state::losed) {},
-            [](player::state::draw) {},
+            [&component, &buttons](player::state::won) {
+                component =
+                    end_game("      YOU WON!        ", Color::Green, buttons);
+            },
+            [&buttons, &component](player::state::losed) {
+                component =
+                    end_game("      YOU LOSED!      ", Color::Red, buttons);
+            },
+            [&buttons, &component](player::state::draw) {
+                component =
+                    end_game("        DRAW!         ", Color::Yellow3, buttons);
+            },
         },
-        players_.first.get_variant()
+        st
     );
+
+    // screen.Loop(component);
+    main_screen_.Loop(component);
+}
+
+void engine::s_update_logic() {
+    // TODO:
+    // Give player's 2 second after the end to check moves
+    if (board_.is_full()) {
+        auto var = board_.check_victory(); // TODO: check_victory()
+        show_game_result(var);
+    }
+}
+
+void engine::s_update() {
+    board_.update_board();
+    board_.update_moves();
+    s_update_logic();
 }
 
 void engine::menu_about(int button_size) {
     auto button = Horizontal({Button(
         labels_[std::to_underlying(label_idx::BACK)],
-        [this]() { screen_.ExitLoopClosure()(); }, button_style(button_size)
+        [this]() { main_screen_.ExitLoopClosure()(); },
+        button_style(button_size)
     )});
 
     auto component = Renderer(button, [&button]() {
@@ -291,11 +338,11 @@ void engine::menu_about(int button_size) {
         );
     });
 
-    screen_.Loop(component);
+    main_screen_.Loop(component);
 }
 
 void engine::menu() {
-    auto button_size{15};
+    constexpr int button_size{15};
     using enum label_idx;
     auto buttons = Vertical(
         // PLAY Button
@@ -303,15 +350,14 @@ void engine::menu() {
              labels_[std::to_underlying(PLAY)],
              [this]() {
                  state_ = state::play{};
-                 screen_.ExitLoopClosure()();
+                 main_screen_.ExitLoopClosure()();
              },
              button_style(button_size)
          ),
          // ABOUT Button
          Button(
              labels_[std::to_underlying(ABOUT)],
-             [this, button_size]() { menu_about(button_size); },
-             button_style(button_size)
+             [this]() { menu_about(button_size); }, button_style(button_size)
 
          ),
          // OPTIONS Button
@@ -324,7 +370,7 @@ void engine::menu() {
              labels_[std::to_underlying(EXIT)],
              [this]() {
                  state_ = state::exit{};
-                 screen_.Exit();
+                 main_screen_.Exit();
              },
              button_style(button_size)
          )}
@@ -336,67 +382,70 @@ void engine::menu() {
 
     component |= CatchEvent([this](Event const& ev) { return s_keyboard(ev); });
 
-    screen_.Loop(component);
+    main_screen_.Loop(component);
 }
 
 void engine::play() {
-    // Asking user to input name only on the first launch
+    // Ask user to input name only on the first launch
     // when config is not generated yet.
     if (players_.first.get_username().empty() || !config_.was_generated()) {
         menu_options();
     }
 
-    board_.update(screen_.ExitLoopClosure());
+    stop_signal_ = false;
 
-    auto rows{board_.get_button_rows()};
+    board_.update_board();
 
-    auto layout = Vertical({rows[0], rows[1], rows[2]});
+    auto& rows{board_.get_button_rows()};
 
+    // Flex for every row to expand them on the entire window
+    auto layout = Vertical({rows[0] | flex, rows[1] | flex, rows[2] | flex});
 
-    auto c = ftxui::Canvas(100, 100);
-    // std::vector<ftxui::Canvas> canvases{};
-    // for (unsigned idx{}; idx < max_button_size; ++idx) {
-    //     canvases.emplace_back(100, 100);
-    //     LOG(fmt::to_string(buttons[idx]->Index()));
-    //     canvases[idx].DrawText(
-    //         0, 0, fmt::to_string(buttons[idx]->Index()),
-    //         player_.get_color()
-    //     );
-    // }
-    c.DrawText(0, 0, "X", [this](ftxui::Pixel& p) {
-        p.foreground_color = players_.first.get_color();
-    });
-    // c.DrawBlockCircle(30, 30, 10);
-    // c.DrawBlockCircle(0, 0, 100);
-
-    auto doc = canvas(&c) | center | border | center;
-
-    auto const& window_color = Color::Green;
-    update_game_logic();
+    auto const&    window_color = Color::Green;
+    ftxui::Element window_label;
 
     auto renderer = Renderer(layout, [&] {
+        auto& player = board_.get_player_turn();
+        if (player.get_username() == players_.first.get_username()) {
+            window_label = text("MOVE: " + player.get_username()) | center |
+                color(player.get_color());
+        } else {
+            window_label =
+                text(
+                    "MOVE: " + player.get_username() + " in " +
+                    fmt::to_string(board_.get_secs_to_move()) + " seconds"
+                ) |
+                center | color(player.get_color());
+        }
+
         return vbox(
             ftxui::window(
-                text(players_.first.get_username()) |
-                    color(players_.first.get_color()),
-                layout->Render(), ftxui::BorderStyle::DASHED
-            ) | color(window_color),
-            doc
+                window_label | center, layout->Render(),
+                ftxui::BorderStyle::DASHED
+            ) |
+            color(window_color) | flex
         );
     });
 
+
     renderer |= CatchEvent([this](Event const& ev) { return s_keyboard(ev); });
 
-    screen_.Loop(renderer);
+    ftxui::Loop loop{&main_screen_, renderer};
+
+    while (!loop.HasQuitted() && (!stop_signal_)) {
+        loop.RunOnce();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        s_update();
+    }
 }
 
-// TODO:
+// TODO(?):
 // Implement modal dialogue
 // https://github.com/ArthurSonzogni/FTXUI/blob/main/examples/component/modal_dialog.cpp
 void engine::ask_exit() {
-    auto screen = ftxui::ScreenInteractive::Fullscreen();
-    int  button_size{10};
-    auto buttons = Horizontal(
+    auto          screen = ftxui::ScreenInteractive::Fullscreen();
+    constexpr int button_size{10};
+    auto          buttons = Horizontal(
         // YES Button
         {Button(
              labels_[std::to_underlying(label_idx::YES)],
@@ -407,8 +456,8 @@ void engine::ask_exit() {
              },
              button_style(button_size)
          ),
-         // NO Button
-         Button(
+                  // NO Button
+                  Button(
              labels_[std::to_underlying(label_idx::NO)],
              [this, &screen]() {
                  state_ = state_.get_previous_variant();

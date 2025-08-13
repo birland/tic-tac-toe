@@ -40,7 +40,7 @@ public:
 
     // Writing data to the temp string to prevent
     // current username corruption
-    void input_name_events();
+    void input_name_events(std::function<void()> exit);
 
     static void display_warning(char const* msg);
 

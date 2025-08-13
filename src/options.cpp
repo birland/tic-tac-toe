@@ -94,11 +94,13 @@ Component options::get_save_button(std::function<void()> exit) {
 std::string const& options::get_temp_str() { return temp_; }
 
 
-void options::input_name_events() {
+void options::input_name_events(std::function<void()> exit) {
+    temp_       = players_->first.get_username();
     input_name_ = ftxui::Input(
         &temp_, "click here to write: ", ftxui::InputOption::Spacious()
     );
-    input_name_ |= ftxui::CatchEvent([this](ftxui::Event const& ev) {
+    input_name_ |= ftxui::CatchEvent([this, &exit](ftxui::Event const& ev) {
+        if (ev == ftxui::Event::Escape) { exit(); }
         // Max size of input 12 characters
         return (ev.is_character() && temp_.size() >= 12) ||
             ev == ftxui::Event::Return;

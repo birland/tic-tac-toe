@@ -30,6 +30,7 @@ public:
     [[nodiscard]] char                get_symbol() const;
     [[nodiscard]] std::string_view    get_symbol_str_v() const;
     void                              set_symbol(char ch);
+    void                              set_symbol(std::string_view str_v);
     // Moves string
     void set_username(std::string temp);
 

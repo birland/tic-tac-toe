@@ -111,7 +111,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       "-O0 -g -Weverything -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -D_GLIBCXX_ASSERTIONS
       -Wno-c++98-compat -Wno-c++-compat -Wno-pre-c++20-compat-pedantic -Wno-c++98-c++11-compat
       -Wno-c++98-c++11-compat-binary-literal
-      -Wno-padded -Wno-covered-switch-default")
+      -Wno-padded -Wno-covered-switch-default -Wno-global-constructors")
 elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
   set(DEBUG_OPTIONS
       "-O0 -g -Wall -Wextra -Werror -Wpedantic -pedantic-errors

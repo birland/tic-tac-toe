@@ -32,4 +32,12 @@ char player::get_symbol() const { return symbol_; }
 
 void player::set_symbol(char ch) { symbol_ = ch; }
 
+void player::set_symbol(std::string_view str_v) {
+    if (str_v == "X") {
+        symbol_ = 'X';
+    } else {
+        symbol_ = 'O';
+    }
+}
+
 void player::set_username(std::string temp) { username_ = std::move(temp); }
