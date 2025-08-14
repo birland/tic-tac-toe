@@ -14,7 +14,7 @@
 
 class options {
 public:
-    explicit options(config* config, std::pair<player, player>* players);
+    explicit options(config* config, std::pair<player*, player*> players);
     options(options const&)            = delete;
     options(options&&)                 = delete;
     options& operator=(options const&) = delete;
@@ -49,7 +49,7 @@ private:
     // Config
     config* config_;
     // Players
-    std::pair<player, player>* players_;
+    std::pair<player*, player*> players_;
     // Components
     ftxui::Component    input_name_;
     ftxui::Component    toggle_symbol_;

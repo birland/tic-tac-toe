@@ -23,6 +23,7 @@
 #include <ftxui/screen/pixel.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -65,14 +66,16 @@ struct overloaded : Ts... { // NOLINT(altera-*, fuchsia-*)
 engine::engine() :
     main_screen_(ftxui::ScreenInteractive::Fullscreen()), config_("config.ini"),
     players_(
-        {player(
+        {std::make_unique<player>(player(
              config_.get_username(), config_.get_color(), config_.get_symbol()
-         ),
-         player("Enemy", Color::Red, config_.get_symbol() == 'X' ? 'O' : 'X')}
+         )),
+         std::make_unique<player>(player(
+             "Enemy", Color::Red, config_.get_symbol() == 'X' ? 'O' : 'X'
+         ))}
     ),
-    options_(&config_, &players_), board_(&players_) {
+    options_(&config_, {players_.first.get(), players_.second.get()}),
+    board_({players_.first.get(), players_.second.get()}) {
     keys_.reserve(500);
-    s_create_game();
 }
 
 ftxui::ButtonOption
@@ -123,7 +126,7 @@ void engine::menu_options() {
             hbox(
                 {text(
                      "your current username is: " +
-                     players_.first.get_username()
+                     players_.first->get_username()
                  ) |
                  border | bold}
             ),
@@ -142,24 +145,20 @@ void engine::menu_options() {
 
     screen.Loop(renderer);
 
-    // Save new name and symbol to the config file
+    // Save new name to the config file
     std::string_view const old_username = config_.get_username();
-    std::string_view const new_username = players_.first.get_username();
+    std::string_view const new_username = players_.first->get_username();
     config_.replace("username", old_username, new_username);
 
     // Save new symbol to the config file
-    std::string_view const from_replace = players_.first.get_symbol_str_v();
-    std::string_view const to_replace =
-        options_.get_toggle_entries()[static_cast<std::size_t>(
-            options_.get_selector()
-        )];
+    std::string_view const old_symbol = players_.first->get_symbol_str_v();
+    std::string_view const new_symbol = options_.get_toggle_entries(
+    )[static_cast<std::size_t>(options_.get_selector())];
 
-    players_.first.set_symbol(to_replace);
-    // FIXME: Bug when player changing symbol in the options
-    // it's not changed for the enemy
-    players_.second.set_symbol(from_replace);
+    players_.first->set_symbol(new_symbol);
+    players_.second->set_symbol(old_symbol);
 
-    config_.replace("symbol", from_replace, to_replace);
+    config_.replace("symbol", old_symbol, new_symbol);
 }
 
 bool engine::s_keyboard_menu(ftxui::Event const& ev) {
@@ -223,16 +222,18 @@ bool engine::s_keyboard(Event const& ev) {
 void engine::s_reset_game() { s_create_game(); }
 
 void engine::s_create_game() {
-    players_.first = player(
-        config_.get_username(), config_.get_color(), config_.get_symbol()
-    );
+    // players_.first = std::make_unique<player>(player(
+    //     config_.get_username(), config_.get_color(), config_.get_symbol()
+    // ));
 
-    char symbol{'X'};
-    if (players_.first.get_symbol() == 'X') { symbol = 'O'; }
+    // char second_player_symbol{'X'};
+    // if (players_.first->get_symbol() == 'X') { second_player_symbol = 'O'; }
 
-    players_.second = player("Enemy", Color::Red, symbol);
+    // players_.second = std::make_unique<player>(
+    //     player("Enemy", Color::Red, second_player_symbol)
+    // );
 
-    board_ = board(&players_);
+    board_ = board({players_.first.get(), players_.second.get()});
 }
 
 std::string engine::get_code(Event const& ev) {
@@ -256,8 +257,8 @@ engine::end_game(char const* label, Color color, ftxui::Component& buttons) {
     return component;
 }
 
-ftxui::Component
-engine::game_result_buttons(std::function<void()> const& exit) {
+ftxui::Component engine::game_result_buttons(std::function<void()> const& exit
+) {
     constexpr int button_size = 12;
     auto          buttons     = Horizontal(
         {Button(
@@ -311,16 +312,14 @@ void engine::show_game_result(player::state_variant st) {
 }
 
 void engine::s_update_logic() {
-    // TODO:
-    // Give player's 2 second after the end to check moves
-    if (board_.is_full()) {
-        auto var = board_.check_victory(); // TODO: check_victory()
+    if (board_.is_end() && board_.get_timer().elapsed_seconds() >= 1.0) {
+        auto var = board_.check_victory();
         show_game_result(var);
     }
 }
 
 void engine::s_update() {
-    board_.update_board();
+    board_.update_draw();
     board_.update_moves();
     s_update_logic();
 }
@@ -390,13 +389,14 @@ void engine::menu() {
 void engine::play() {
     // Ask user to input name only on the first launch
     // when config is not generated yet.
-    if (players_.first.get_username().empty() || !config_.was_generated()) {
+    if (players_.first->get_username().empty() || !config_.was_generated()) {
         menu_options();
     }
+    s_create_game();
 
     stop_signal_ = false;
 
-    board_.update_board();
+    board_.update_draw();
 
     auto& rows{board_.get_button_rows()};
 
@@ -407,17 +407,17 @@ void engine::play() {
     ftxui::Element window_label;
 
     auto renderer = Renderer(layout, [&] {
-        auto& player = board_.get_player_turn();
-        if (player.get_username() == players_.first.get_username()) {
-            window_label = text("MOVE: " + player.get_username()) | center |
-                color(player.get_color());
+        auto* player = board_.get_player_turn();
+        if (player->get_username() == players_.first->get_username()) {
+            window_label = text("MOVE: " + player->get_username()) | center |
+                color(player->get_color());
         } else {
             window_label =
                 text(
-                    "MOVE: " + player.get_username() + " in " +
+                    "MOVE: " + player->get_username() + " in " +
                     fmt::to_string(board_.get_secs_to_move()) + " seconds"
                 ) |
-                center | color(player.get_color());
+                center | color(player->get_color());
         }
 
         return vbox(

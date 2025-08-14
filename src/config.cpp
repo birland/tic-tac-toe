@@ -10,6 +10,7 @@
 #include <ios>
 #include <istream>
 #include <stdexcept>
+#include <string.h>
 #include <string>
 #include <string_view>
 
@@ -132,10 +133,18 @@ void config::replace(
     auto rem_err = std::remove(old_file_path.c_str());
 
     if (rem_err != 0) {
+#ifdef WIN32_
         std::array<char, 255> buffer{};
         (void)strerror_s(buffer.data(), buffer.size(), rem_err);
         throw std::runtime_error(
             "Can't remove old file" + std::string(buffer.begin(), buffer.end())
         );
+#elif __unix__
+        std::array<char, 255> buffer{};
+        (void)strerror_r(rem_err, buffer.data(), buffer.size());
+        throw std::runtime_error(
+            "Can't remove old file" + std::string(buffer.begin(), buffer.end())
+        );
+#endif
     }
 }

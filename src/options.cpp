@@ -30,11 +30,11 @@ using ftxui::Container::Vertical;
 using std::to_underlying;
 
 options::options(
-    config* const config, std::pair<player, player>* const players
+    config* const config, std::pair<player*, player*> const players
 ) :
     config_(config), players_(players), default_button_option_(button_style()),
     selector_(config_->get_symbol() == 'X' ? 0 : 1),
-    temp_(players_->first.get_username()) {
+    temp_(players_.first->get_username()) {
 
     // Toggle symbol
     toggle_symbol_ = Vertical({toggles_});
@@ -50,7 +50,7 @@ ftxui::ButtonOption options::button_style(int width, int height) {
     option.transform = [width, height](EntryState const& es) {
         auto element = text(es.label) | center |
             ftxui::size(WIDTH, GREATER_THAN, width) |
-            ftxui::size(HEIGHT, GREATER_THAN, height);
+            ftxui::size(HEIGHT, GREATER_THAN, height) | color(Color::Blue);
 
         if (es.focused) { element |= color(Color::Green); }
 
@@ -78,7 +78,7 @@ Component options::get_save_button(std::function<void()> const& exit) {
         labels_[std::to_underlying(label_idx::SAVE)],
         [exit, this]() {
             if (!temp_.empty()) {
-                players_->first.set_username(std::move(temp_));
+                players_.first->set_username(std::move(temp_));
                 exit();
             } else {
                 display_warning("Username can't be empty.");
@@ -95,7 +95,7 @@ std::string const& options::get_temp_str() { return temp_; }
 
 
 void options::input_name_events(std::function<void()> exit) {
-    temp_       = players_->first.get_username();
+    temp_       = players_.first->get_username();
     input_name_ = ftxui::Input(
         &temp_, "click here to write: ", ftxui::InputOption::Spacious()
     );

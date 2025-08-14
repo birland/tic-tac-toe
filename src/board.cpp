@@ -1,6 +1,7 @@
 #include "board.hpp"
 #include <algorithm>
 #include <array>
+#include <cstdlib> // for system()
 #include <fmt/base.h>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
@@ -14,13 +15,11 @@
 #include <ftxui/util/ref.hpp>
 #include <functional>
 #include <string>
-#include <thread>
 #include <utility>
 #include "player.hpp"
 #include "random.hpp"
 #include "timer.hpp"
 
-// TODO: Test this.
 // Bad way for beep sound :D
 #ifdef _WIN32
 
@@ -52,20 +51,22 @@ using ftxui::size;
 using ftxui::text;
 using ftxui::WIDTH;
 
-board::board(std::pair<player, player>* players, int button_size) :
+board::board(std::pair<player*, player*> players, int button_size) :
     button_size_(button_size), players_(players) {
     for (unsigned cnt{}; cnt < buttons_.size(); ++cnt) {
         buttons_[cnt].resize(buttons_.size());
     }
 
-    if (players_->first.get_symbol() == 'X') {
+    if (players_.first->get_symbol() == 'X') {
         move_turn_.first = true;
     } else {
         move_turn_.second = true;
     }
 }
 
-void board::update_board() {
+void board::update_draw() {
+    // TODO: Draw 'X' and 'O' using canvas instead of just text?
+    // Because text on the buttons are too small.
     for (unsigned col{}; col < buttons_.size(); ++col) {
         for (unsigned row{}; row < buttons_[col].size(); ++row) {
             auto& cell   = board_[col][row];
@@ -77,8 +78,8 @@ void board::update_board() {
                 if (move_turn_.first && cell == " ") {
                     player_move(cell);
                 } else {
-                    // TODO: sound alert?
-                    std::jthread const sound(beep);
+                    // FIXME: Make new thread?
+                    beep();
                 }
             }));
         }
@@ -98,7 +99,17 @@ void board::update_board() {
 }
 
 void board::update_moves() {
-    if (move_turn_.second) { enemy_move(); }
+    if (!is_end_) {
+        if (move_turn_.second) { enemy_move(); }
+
+        if (check_col() || check_row() || check_diag() || check_antidiag() ||
+            is_full()) {
+            is_end_ = true;
+            // Reset timer in the end of the game to give 2 seconds
+            // to player when enemy is won
+            timer_.reset();
+        }
+    }
 }
 
 board::buttons_2d&       board::get_buttons() { return buttons_; }
@@ -113,9 +124,9 @@ double                     board::get_secs_to_move() {
     return enemy_move_delay_ - timer_.elapsed_seconds();
 }
 
+[[nodiscard]] bool board::is_end() const { return is_end_; }
 
 // TODO: Implement slider for enemy move from 1 second to 10 seconds
-
 
 void board::move_first() {
     if (is_first_turn_ && move_turn_.second) {
@@ -129,9 +140,9 @@ void board::move_first() {
 
 
 void board::player_move(auto& cell) {
-    auto& player = players_->first;
+    auto& player = players_.first;
 
-    cell = player.get_symbol_str_v();
+    cell = player->get_symbol_str_v();
 
     // enemy's turn
     move_turn_.first  = !move_turn_.first;
@@ -142,7 +153,7 @@ void board::player_move(auto& cell) {
 void board::enemy_move() {
     if (static_cast<unsigned>(timer_.elapsed_seconds()) >= enemy_move_delay_ ||
         is_first_turn_) {
-        auto& enemy = players_->second;
+        auto& enemy = players_.second;
 
         for (unsigned arr_idx{}; arr_idx < board_.size(); ++arr_idx) {
             for (unsigned str_idx{}; str_idx < board_[arr_idx].size();
@@ -152,7 +163,7 @@ void board::enemy_move() {
                     // player's turn
                     move_turn_.first  = !move_turn_.first;
                     move_turn_.second = !move_turn_.second;
-                    cell              = enemy.get_symbol_str_v();
+                    cell              = enemy->get_symbol_str_v();
                     return;
                 }
             }
@@ -160,19 +171,14 @@ void board::enemy_move() {
     }
 }
 
-player& board::get_player_turn() {
-    return move_turn_.first ? players_->first : players_->second;
+player* board::get_player_turn() {
+    return move_turn_.first ? players_.first : players_.second;
 }
 
 [[nodiscard]] bool board::is_full() {
     unsigned count{};
     for (auto const& col : board_) { count += std::ranges::count(col, " "); }
     return count == 0;
-}
-
-player::state_variant board::check_victory() {
-    // TODO: Implement algorithm to check winner
-    return player::state::won{};
 }
 
 ftxui::ButtonOption
@@ -194,10 +200,10 @@ board::button_style(auto& label, std::function<void()> on_click) {
         ftxui::Color local_color;
         if (label == " ") {
             local_color = ftxui::Color::Green;
-        } else if (label == players_->first.get_symbol_str_v()) {
-            local_color = players_->first.get_color();
+        } else if (label == players_.first->get_symbol_str_v()) {
+            local_color = players_.first->get_color();
         } else {
-            local_color = players_->second.get_color();
+            local_color = players_.second->get_color();
         }
 
         auto element = text(label) | center | ftxui::color(local_color) |
@@ -212,4 +218,94 @@ board::button_style(auto& label, std::function<void()> on_click) {
     };
 
     return option;
+}
+
+player::state_variant board::check_victory() {
+    player::state_variant var;
+
+    check_winner(var);
+
+    return var;
+}
+
+
+void board::check_winner(player::state_variant& var) const {
+    if (counters_.first == 3) {
+        var = player::state::won{};
+    } else if (counters_.second == 3) {
+        var = player::state::losed{};
+    } else {
+        var = player::state::draw{};
+    }
+}
+
+bool board::check_cell(auto& cell) {
+    if (cell == " ") { return false; }
+
+    if (cell == players_.first->get_symbol_str_v()) {
+        ++counters_.first;
+    } else if (cell == players_.second->get_symbol_str_v()) {
+        ++counters_.second;
+    }
+
+    return counters_.first == 3 || counters_.second == 3;
+}
+
+bool board::check_col() {
+    for (unsigned col{}; col < board_.size(); ++col) {
+        for (unsigned row{}; row < board_[col].size(); ++row) {
+            auto& cell = board_[row][col];
+            if (check_cell(cell)) { return true; }
+        }
+        // Reset
+        counters_ = {};
+    }
+
+    return false;
+}
+
+bool board::check_row() {
+    for (unsigned col{}; col < board_.size(); ++col) {
+        for (unsigned row{}; row < board_[col].size(); ++row) {
+            auto& cell = board_[col][row];
+            if (check_cell(cell)) { return true; }
+        }
+        // Reset
+        counters_ = {};
+    }
+
+    return false;
+}
+
+bool board::check_diag() {
+    // TODO:
+    // Bad way?
+    std::array diag{
+        board_[0][0].c_str(), board_[1][1].c_str(), board_[2][2].c_str()
+    };
+
+    for (auto const& elem : diag) {
+        if (check_cell(elem)) { return true; }
+    }
+    // Reset
+    counters_ = {};
+
+    return false;
+}
+
+bool board::check_antidiag() {
+    // TODO:
+    // Bad way?
+    std::array antidiag{
+        board_[0][2].c_str(), board_[1][1].c_str(), board_[2][0].c_str()
+    };
+
+    for (auto const& elem : antidiag) {
+        if (check_cell(elem)) { return true; }
+    }
+
+    // Reset
+    counters_ = {};
+
+    return false;
 }

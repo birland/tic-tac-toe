@@ -7,6 +7,7 @@
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -68,7 +69,7 @@ private:
     // Config
     config config_;
     // Players
-    std::pair<player, player> players_;
+    std::pair<std::unique_ptr<player>, std::unique_ptr<player>> players_;
     // Options
     options options_;
     // Board
