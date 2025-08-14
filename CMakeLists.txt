@@ -30,10 +30,10 @@ if(UNIX)
 endif()
 message("Build type: ${CMAKE_BUILD_TYPE}")
 
-set(USE_CPM_PACKAGES_ENABLED ON)
-set(PROFILER_ENABLED OFF)
-set(STATIC_LINKING_ENABLED OFF)
-set(ENABLE_SANITIZERS ON)
+option(USE_CPM_PACKAGES_ENABLED "Flag to use find package or CPM" ON)
+option(PROFILER_ENABLED "Flag to use Tracy Profiler" OFF)
+option(STATIC_LINKING_ENABLED "Flag to use static linking" OFF)
+option(ENABLE_SANITIZERS "Flag to use sanitizers" ON)
 
 if(USE_CPM_PACKAGES_ENABLED)
   # download CPM.cmake
@@ -102,7 +102,7 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set(DEBUG_OPTIONS
-      "/DEBUG /Zi /EHsc /W4 /external:anglebrackets /external:W0 /external:templates-"
+      "/DEBUG /Zi /EHsc /W4 /external:anglebrackets /external:W0 /external:templates- /std:c++latest"
   )
   set(RELEASE_OPTIONS "/O2")
   message("MSVC COMPILER FLAGS")
@@ -169,17 +169,7 @@ if(ENABLE_SANITIZERS AND NOT MSVC)
   )
 endif()
 
-if(WIN32)
-  add_custom_command(
-    TARGET ${PROJECT_NAME}
-    COMMENT "Copy OpenAL DLL"
-    PRE_BUILD
-    COMMAND
-      ${CMAKE_COMMAND} -E copy_if_different
-      ${SFML_SOURCE_DIR}/extlibs/bin/$<IF:$<EQUAL:${CMAKE_SIZEOF_VOID_P},8>,x64,x86>/openal32.dll
-      $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    VERBATIM)
-elseif(UNIX)
+if(UNIX)
   find_package(Freetype)
   target_link_libraries(${PROJECT_NAME} PRIVATE X11 freetype)
 endif()

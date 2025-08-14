@@ -34,7 +34,8 @@ public:
     // Save player username when SAVE pressed
     // and return component with save button
     // OR component with display warning when username is empty.
-    [[nodiscard]] ftxui::Component get_save_button(std::function<void()> exit);
+    [[nodiscard]] ftxui::Component
+    get_save_button(std::function<void()> const& exit);
 
     [[nodiscard]] std::string const& get_temp_str();
 

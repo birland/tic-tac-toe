@@ -1,8 +1,6 @@
 #include "board.hpp"
 #include <algorithm>
 #include <array>
-#include <cstdlib>
-#include <cstring>
 #include <fmt/base.h>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
@@ -16,6 +14,7 @@
 #include <ftxui/util/ref.hpp>
 #include <functional>
 #include <string>
+#include <thread>
 #include <utility>
 #include "player.hpp"
 #include "random.hpp"
@@ -24,16 +23,20 @@
 // TODO: Test this.
 // Bad way for beep sound :D
 #ifdef _WIN32
+
 #include <Windows.h>
-static void beep() { Beep(440, 1000); }
+#include <utilapiset.h>
+static void beep() { Beep(440, 200); }
 
 #elif __linux__
 
 #include <cstdio>
-static void beep() { system("beep -f 5000 -l 50 -r 2"); }
+static void beep() { system("beep -f 5000 -l 50 -r 2"); } // NOLINT
 
 #else
+
 static void beep() { fmt::println("\a"); }
+
 #endif
 
 
@@ -75,7 +78,7 @@ void board::update_board() {
                     player_move(cell);
                 } else {
                     // TODO: sound alert?
-                    beep();
+                    std::jthread const sound(beep);
                 }
             }));
         }

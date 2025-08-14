@@ -1,6 +1,7 @@
 #include "config.hpp"
+#include <array>
 #include <cstdio>
-#include <cstring>
+#include <cstring> // for strerror_s
 #include <exception>
 #include <filesystem>
 #include <fmt/base.h>
@@ -21,7 +22,7 @@ config::config(std::filesystem::path const& path) :
     std::ifstream file{path, std::ios::binary | std::ios::in};
 
     if (!file.is_open()) {
-        throw std::runtime_error(fmt::format("Can't open {}", path.c_str()));
+        throw std::runtime_error(fmt::format("Can't open {}", path.string()));
     }
 
     std::string line;
@@ -66,14 +67,14 @@ void config::generate_default() {
     fmt::println(stderr, "Generated default config.");
 
     if (std::filesystem::exists(file_path_)) {
-        auto err = std::remove(file_path_.c_str());
+        auto err = std::remove(file_path_.string().c_str());
         if (err != 0) { throw std::runtime_error("Failed to remove file."); }
     }
 
     std::ofstream file{file_path_, std::ios::binary | std::ios::out};
     if (!file.is_open()) {
         throw std::runtime_error(
-            fmt::format("Can't open {}", file_path_.c_str())
+            fmt::format("Can't open {}", file_path_.string())
         );
     }
 
@@ -87,7 +88,7 @@ void config::replace(
 ) {
     auto old_file_path = (file_path_.string() + ".temp");
 
-    auto err = std::rename(file_path_.c_str(), old_file_path.c_str());
+    auto err = std::rename(file_path_.string().c_str(), old_file_path.c_str());
 
     if (err != 0) { throw std::runtime_error("Failed to rename."); }
 
@@ -104,7 +105,7 @@ void config::replace(
 
     if (!new_file.is_open()) {
         throw std::runtime_error(
-            fmt::format("Can't open: {}", file_path_.c_str())
+            fmt::format("Can't open: {}", file_path_.string())
         );
     }
 
@@ -129,9 +130,12 @@ void config::replace(
     new_file.close();
 
     auto rem_err = std::remove(old_file_path.c_str());
+
     if (rem_err != 0) {
+        std::array<char, 255> buffer{};
+        (void)strerror_s(buffer.data(), buffer.size(), rem_err);
         throw std::runtime_error(
-            std::string("Can't remove old file") + std::strerror(rem_err)
+            "Can't remove old file" + std::string(buffer.begin(), buffer.end())
         );
     }
 }

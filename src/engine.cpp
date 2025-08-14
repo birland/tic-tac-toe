@@ -1,7 +1,6 @@
 #include "engine.hpp"
 #include <array>
 #include <cassert>
-#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -98,7 +97,7 @@ engine::button_style(int size /* std::function<void()> on_click*/) {
 
 // Input name, toggle set symbol
 void engine::menu_options() {
-    auto screen = ftxui::ScreenInteractive::FitComponent();
+    auto screen = ftxui::ScreenInteractive::Fullscreen();
     options_.input_name_events(screen.ExitLoopClosure());
 
     auto input  = options_.get_input_name();
@@ -144,14 +143,16 @@ void engine::menu_options() {
     screen.Loop(renderer);
 
     // Save new name and symbol to the config file
-    std::string_view old_username = config_.get_username();
-    std::string_view new_username = players_.first.get_username();
+    std::string_view const old_username = config_.get_username();
+    std::string_view const new_username = players_.first.get_username();
     config_.replace("username", old_username, new_username);
 
     // Save new symbol to the config file
-    std::string_view from_replace = players_.first.get_symbol_str_v();
-    std::string_view to_replace   = options_.get_toggle_entries(
-    )[static_cast<std::size_t>(options_.get_selector())];
+    std::string_view const from_replace = players_.first.get_symbol_str_v();
+    std::string_view const to_replace =
+        options_.get_toggle_entries()[static_cast<std::size_t>(
+            options_.get_selector()
+        )];
 
     players_.first.set_symbol(to_replace);
     // FIXME: Bug when player changing symbol in the options
@@ -255,12 +256,13 @@ engine::end_game(char const* label, Color color, ftxui::Component& buttons) {
     return component;
 }
 
-ftxui::Component engine::game_result_buttons(std::function<void()> exit) {
+ftxui::Component
+engine::game_result_buttons(std::function<void()> const& exit) {
     constexpr int button_size = 12;
     auto          buttons     = Horizontal(
         {Button(
              "AGAIN",
-             [this, &exit] {
+             [this, exit] {
                  s_reset_game();
                  exit();
              },
@@ -268,7 +270,7 @@ ftxui::Component engine::game_result_buttons(std::function<void()> exit) {
          ),
                       Button(
              "EXIT",
-             [this, &exit] {
+             [this, exit] {
                  s_reset_game();
                  state_ = state::menu{};
                  exit();

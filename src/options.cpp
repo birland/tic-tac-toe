@@ -73,10 +73,10 @@ std::vector<std::string> const& options::get_toggle_entries() {
 
 int& options::get_selector() { return selector_; }
 
-Component options::get_save_button(std::function<void()> exit) {
+Component options::get_save_button(std::function<void()> const& exit) {
     auto save_button = ftxui::Container::Vertical({Button(
         labels_[std::to_underlying(label_idx::SAVE)],
-        [&, this]() {
+        [exit, this]() {
             if (!temp_.empty()) {
                 players_->first.set_username(std::move(temp_));
                 exit();
