@@ -64,25 +64,20 @@ struct overloaded : Ts... { // NOLINT(altera-*, fuchsia-*)
 };
 
 engine::engine() :
-    main_screen_(ftxui::ScreenInteractive::Fullscreen()), config_("config.ini"),
+    main_screen_(ftxui::ScreenInteractive::Fullscreen()),
+    config_("configuration.toml"),
     players_(
-        {std::make_unique<player>(player(
-             config_.get_username(), config_.get_color(), config_.get_symbol()
-         )),
-         std::make_unique<player>(player(
-             "Enemy", Color::Red, config_.get_symbol() == 'X' ? 'O' : 'X'
-         ))}
+        player(
+            config_.get_username(), config_.get_color(), config_.get_symbol()
+        ),
+        player("Enemy", Color::Red, config_.get_symbol() == "X" ? "O" : "X")
     ),
-    options_(&config_, {players_.first.get(), players_.second.get()}),
-    board_({players_.first.get(), players_.second.get()}) {
+    options_(&config_, &players_), board_(&players_) {
     keys_.reserve(500);
 }
 
-ftxui::ButtonOption
-engine::button_style(int size /* std::function<void()> on_click*/) {
-    // auto option = ButtonOption::Animated();
+ftxui::ButtonOption engine::button_style(int size) {
     auto option = ButtonOption::Simple();
-    // option.on_click  = on_click;
     option.animated_colors.background.Set(Color::GrayDark, Color::White);
     option.animated_colors.foreground.Set(Color::White, Color::Green);
     option.transform = [size](ftxui::EntryState const& es) {
@@ -96,69 +91,6 @@ engine::button_style(int size /* std::function<void()> on_click*/) {
     };
 
     return option;
-}
-
-// Input name, toggle set symbol
-void engine::menu_options() {
-    auto screen = ftxui::ScreenInteractive::Fullscreen();
-    options_.input_name_events(screen.ExitLoopClosure());
-
-    auto input  = options_.get_input_name();
-    auto toggle = options_.get_toggle_symbol();
-    auto button = options_.get_save_button(screen.ExitLoopClosure());
-
-    auto containers = Vertical({
-        input,
-        toggle,
-        button,
-    });
-
-    auto renderer = Renderer(containers, [&, this] {
-        return vbox({
-            hbox(
-                {text("username: ") | border | bold,
-                 options_.get_input_name()->Render()}
-            ),
-            separator(),
-            vbox(text("Symbol: ") | bold | flex, toggle->Render() | border),
-            separator(),
-            filler(),
-            hbox(
-                {text(
-                     "your current username is: " +
-                     players_.first->get_username()
-                 ) |
-                 border | bold}
-            ),
-            hbox(
-                {text("your new username is: " + options_.get_temp_str()) |
-                 border | bold}
-            ),
-            separator(),
-            vbox({
-                filler(),
-                button->Render(),
-                filler(),
-            }),
-        });
-    });
-
-    screen.Loop(renderer);
-
-    // Save new name to the config file
-    std::string_view const old_username = config_.get_username();
-    std::string_view const new_username = players_.first->get_username();
-    config_.replace("username", old_username, new_username);
-
-    // Save new symbol to the config file
-    std::string_view const old_symbol = players_.first->get_symbol_str_v();
-    std::string_view const new_symbol = options_.get_toggle_entries(
-    )[static_cast<std::size_t>(options_.get_selector())];
-
-    players_.first->set_symbol(new_symbol);
-    players_.second->set_symbol(old_symbol);
-
-    config_.replace("symbol", old_symbol, new_symbol);
 }
 
 bool engine::s_keyboard_menu(ftxui::Event const& ev) {
@@ -222,18 +154,9 @@ bool engine::s_keyboard(Event const& ev) {
 void engine::s_reset_game() { s_create_game(); }
 
 void engine::s_create_game() {
-    // players_.first = std::make_unique<player>(player(
-    //     config_.get_username(), config_.get_color(), config_.get_symbol()
-    // ));
-
-    // char second_player_symbol{'X'};
-    // if (players_.first->get_symbol() == 'X') { second_player_symbol = 'O'; }
-
-    // players_.second = std::make_unique<player>(
-    //     player("Enemy", Color::Red, second_player_symbol)
-    // );
-
-    board_ = board({players_.first.get(), players_.second.get()});
+    // if (players_.first.get_symbol() == "X") {
+    // players_.second.set_symbol("O"); }
+    board_ = board(&players_);
 }
 
 std::string engine::get_code(Event const& ev) {
@@ -285,7 +208,6 @@ ftxui::Component engine::game_result_buttons(std::function<void()> const& exit
 }
 
 void engine::show_game_result(player::state_variant st) {
-    // auto screen = ftxui::ScreenInteractive::Fullscreen();
     auto buttons = game_result_buttons(main_screen_.ExitLoopClosure());
     ftxui::Component component;
 
@@ -307,7 +229,6 @@ void engine::show_game_result(player::state_variant st) {
         st
     );
 
-    // screen.Loop(component);
     main_screen_.Loop(component);
 }
 
@@ -340,6 +261,71 @@ void engine::menu_about(int button_size) {
     });
 
     main_screen_.Loop(component);
+}
+
+
+// Input name, toggle set symbol
+void engine::menu_options() {
+    auto screen = ftxui::ScreenInteractive::Fullscreen();
+    options_.input_name_events(screen.ExitLoopClosure());
+
+    auto input  = options_.get_input_name();
+    auto toggle = options_.get_toggle_symbol();
+    auto button = options_.get_save_button(screen.ExitLoopClosure());
+
+    auto containers = Vertical({
+        input,
+        toggle,
+        button,
+    });
+
+    auto renderer = Renderer(containers, [&, this] {
+        return vbox({
+            hbox(
+                {text("username: ") | border | bold,
+                 options_.get_input_name()->Render()}
+            ),
+            separator(),
+            vbox(text("Symbol: ") | bold | flex, toggle->Render() | border),
+            separator(),
+            filler(),
+            hbox(
+                {text(
+                     "your current username is: " +
+                     players_.first.get_username()
+                 ) |
+                 border | bold}
+            ),
+            hbox(
+                {text("your new username is: " + options_.get_temp_str()) |
+                 border | bold}
+            ),
+            separator(),
+            vbox({
+                filler(),
+                button->Render(),
+                filler(),
+            }),
+        });
+    });
+
+    screen.Loop(renderer);
+
+    auto& first  = players_.first;
+    auto& second = players_.second;
+    // Save new name to the config file
+    std::string_view const new_username = first.get_username_str_v();
+    config_.replace("username", new_username);
+
+    // Save new symbol to the config file
+    std::string_view const new_symbol = options_.get_toggle_entries(
+    )[static_cast<std::size_t>(options_.get_selector())];
+
+    if (players_.first.get_symbol() != new_symbol) {
+        first.set_symbol(new_symbol);
+        second.set_symbol(first.get_prev_symbol());
+        config_.replace("symbol", new_symbol);
+    }
 }
 
 void engine::menu() {
@@ -389,7 +375,8 @@ void engine::menu() {
 void engine::play() {
     // Ask user to input name only on the first launch
     // when config is not generated yet.
-    if (players_.first->get_username().empty() || !config_.was_generated()) {
+    if (players_.first.get_username_str_v().empty() ||
+        !config_.was_generated()) {
         menu_options();
     }
     s_create_game();
@@ -408,7 +395,8 @@ void engine::play() {
 
     auto renderer = Renderer(layout, [&] {
         auto* player = board_.get_player_turn();
-        if (player->get_username() == players_.first->get_username()) {
+        if (player->get_username_str_v() ==
+            players_.first.get_username_str_v()) {
             window_label = text("MOVE: " + player->get_username()) | center |
                 color(player->get_color());
         } else {

@@ -1,14 +1,13 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include <array>
-#include <exception>
 #include <filesystem>
 #include <fmt/base.h>
+#include <fstream>
 #include <ftxui/screen/color.hpp>
-#include <stdexcept>
-#include <string>
 #include <string_view>
+#include <toml++/impl/forward_declarations.hpp>
+#include <toml++/toml.hpp>
 
 class config {
 public:
@@ -20,61 +19,36 @@ public:
     ~config()                        = default;
 
     void init();
-    void parse_data(std::string_view key, std::string_view data);
+    void parse_data();
     void generate_default();
+    void replace(std::string_view key, std::string_view value);
 
-    [[nodiscard]] auto get_default_data() const { return default_data_; }
-
-    [[nodiscard]] std::string_view get_username() {
-        try {
-            if (username_.empty()) {
-                throw std::runtime_error("Empty username.");
-            }
-            return username_;
-        } catch (std::exception const& ex) {
-            fmt::println(stderr, "{}", ex.what());
-            generate_default();
-        }
-        return default_username_;
-    }
-
-    ftxui::Color get_color() {
-        try {
-            if (color_ == "White") { return ftxui::Color::White; }
-            if (color_ == "Green") { return ftxui::Color::Green; }
-            if (color_ == "Blue") { return ftxui::Color::Blue; }
-
-            throw std::runtime_error("Invalid color");
-        } catch (std::exception const& ex) {
-            fmt::println(stderr, "{}", ex.what());
-            generate_default();
-        }
-        return default_color_;
-    }
-
-    [[nodiscard]] char get_symbol() const { return symbol_; }
-
-    void replace(
-        std::string_view key, std::string_view source,
-        std::string_view destination
-    );
-
-
-    [[nodiscard]] bool was_generated() const { return was_generated_; }
+    toml::table&                   get_config();
+    [[nodiscard]] auto             get_default_data() const;
+    [[nodiscard]] std::string_view get_username();
+    ftxui::Color                   get_color();
+    [[nodiscard]] std::string_view get_symbol() const;
+    [[nodiscard]] bool             was_generated() const;
 
 private:
-    std::filesystem::path           file_path_;
-    std::string                     username_;
-    std::string                     color_;
-    char                            symbol_;
-    bool                            was_generated_;
-    std::string_view                default_username_{"username: Player"};
-    ftxui::Color                    default_color_{ftxui::Color::Blue};
-    std::string_view                default_color_str_v_{"color: Blue"};
-    std::string_view                default_symbol_{"symbol: X"};
-    std::array<std::string_view, 3> default_data_{
-        default_username_, default_color_str_v_, default_symbol_
-    };
+    std::fstream          file_;
+    toml::table           tbl_;
+    std::filesystem::path file_path_;
+    std::string_view      username_;
+    std::string_view      color_;
+    std::string_view      symbol_;
+    bool                  was_generated_;
+    ftxui::Color          default_color_{ftxui::Color::Blue};
+    using sv = std::string_view;
+    static constexpr std::string_view default_toml_{sv(R"(
+        [tictactoe]
+        color = "Blue"
+        symbol = "X"
+        username = "Player"
+        )")};
+    static constexpr std::string_view default_color_str_v_{sv("Blue")};
+    static constexpr std::string_view default_symbol_{sv("X")};
+    static constexpr std::string_view default_username_{sv("Player")};
 };
 
 #endif

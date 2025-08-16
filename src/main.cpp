@@ -1,3 +1,4 @@
+#include <cstdio> // for stderr
 #include <cstdlib>
 #include <exception>
 #include <fmt/base.h>

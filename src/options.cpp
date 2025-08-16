@@ -7,13 +7,12 @@
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
-#include <ftxui/screen/screen.hpp>
 #include <functional>
+#include <gsl/pointers>
 #include <string>
 #include <utility>
 #include <vector>
 #include "box_utils.hpp"
-#include "config.hpp"
 #include "label_buttons.hpp"
 #include "player.hpp"
 
@@ -30,17 +29,15 @@ using ftxui::Container::Vertical;
 using std::to_underlying;
 
 options::options(
-    config* const config, std::pair<player*, player*> const players
+    options::config_ptr const config, options::players_ptr const players
 ) :
     config_(config), players_(players), default_button_option_(button_style()),
-    selector_(config_->get_symbol() == 'X' ? 0 : 1),
-    temp_(players_.first->get_username()) {
+    selector_(players_->first.get_symbol() == "X" ? 0 : 1),
+    temp_(players_->first.get_username_str_v()) {
 
     // Toggle symbol
     toggle_symbol_ = Vertical({toggles_});
 }
-
-void options::update() { selector_ = config_->get_symbol() == 'X' ? 0 : 1; }
 
 ftxui::ButtonOption options::button_style(int width, int height) {
     ButtonOption option = ButtonOption::Simple();
@@ -59,43 +56,8 @@ ftxui::ButtonOption options::button_style(int width, int height) {
     return option;
 }
 
-ftxui::Component options::get_input_name() { return input_name_; }
-
-ftxui::ButtonOption options::get_button_option() {
-    return default_button_option_;
-}
-
-ftxui::Component options::get_toggle_symbol() { return toggle_symbol_; }
-
-std::vector<std::string> const& options::get_toggle_entries() {
-    return toggle_entries_;
-}
-
-int& options::get_selector() { return selector_; }
-
-Component options::get_save_button(std::function<void()> const& exit) {
-    auto save_button = ftxui::Container::Vertical({Button(
-        labels_[std::to_underlying(label_idx::SAVE)],
-        [exit, this]() {
-            if (!temp_.empty()) {
-                players_.first->set_username(std::move(temp_));
-                exit();
-            } else {
-                display_warning("Username can't be empty.");
-            }
-        },
-        default_button_option_
-    )});
-
-
-    return save_button;
-}
-
-std::string const& options::get_temp_str() { return temp_; }
-
-
 void options::input_name_events(std::function<void()> exit) {
-    temp_       = players_.first->get_username();
+    temp_       = players_->first.get_username_str_v();
     input_name_ = ftxui::Input(
         &temp_, "click here to write: ", ftxui::InputOption::Spacious()
     );
@@ -122,3 +84,38 @@ void options::display_warning(char const* msg) {
 
     screen.Loop(renderer);
 }
+
+
+ftxui::Component options::get_input_name() { return input_name_; }
+
+ftxui::ButtonOption options::get_button_option() {
+    return default_button_option_;
+}
+
+ftxui::Component options::get_toggle_symbol() { return toggle_symbol_; }
+
+std::vector<std::string> const& options::get_toggle_entries() {
+    return toggle_entries_;
+}
+
+int& options::get_selector() { return selector_; }
+
+Component options::get_save_button(std::function<void()> const& exit) {
+    auto save_button = ftxui::Container::Vertical({Button(
+        labels_[std::to_underlying(label_idx::SAVE)],
+        [exit, this]() {
+            if (!temp_.empty()) {
+                players_->first.set_username(std::move(temp_));
+                exit();
+            } else {
+                display_warning("Username can't be empty.");
+            }
+        },
+        default_button_option_
+    )});
+
+
+    return save_button;
+}
+
+std::string const& options::get_temp_str() { return temp_; }

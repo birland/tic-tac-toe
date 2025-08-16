@@ -8,7 +8,7 @@
 class player {
 public:
     player() = default;
-    player(std::string_view name, ftxui::Color color, char symbol);
+    player(std::string_view name, ftxui::Color color, std::string_view symbol);
     player(player const&)            = delete;
     player(player&&)                 = default;
     player& operator=(player const&) = default;
@@ -23,26 +23,26 @@ public:
 
     using state_variant = std::variant<state::won, state::losed, state::draw>;
 
-    [[nodiscard]] std::string_view    get_username() const;
-    std::string&                      get_username();
+    [[nodiscard]] std::string_view    get_username_str_v() const;
+    [[nodiscard]] std::string const&  get_username() const;
     [[nodiscard]] ftxui::Color const& get_color() const;
+    [[nodiscard]] std::string_view    get_symbol() const;
+    [[nodiscard]] char                get_prev_symbol() const;
+    state_variant const&              get_variant();
+    [[nodiscard]] state               get_state() const;
     void                              set_color(ftxui::Color color);
-    [[nodiscard]] char                get_symbol() const;
-    [[nodiscard]] std::string_view    get_symbol_str_v() const;
-    void                              set_symbol(char ch);
     void                              set_symbol(std::string_view str_v);
-    // Moves string
-    void set_username(std::string temp);
+    void                              set_symbol(char ch);
+    void                              set_username(std::string temp);
 
-    state_variant const& get_variant();
-    [[nodiscard]] state  get_state() const;
 
 private:
     std::string                                         username_;
+    std::string_view                                    symbol_;
+    char                                                prev_symbol_;
     ftxui::Color                                        color_;
     std::variant<state::won, state::losed, state::draw> variant_;
     struct state                                        state_{};
-    char                                                symbol_{};
 };
 
 #endif

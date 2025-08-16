@@ -58,8 +58,10 @@ if(USE_CPM_PACKAGES_ENABLED)
   # {fmt} format
   cpmaddpackage("gh:fmtlib/fmt#11.2.0")
 
-  # {modern scanf}
-  cpmaddpackage("gh:eliaskosunen/scnlib#v4.0.1")
+  # toml++
+  cpmaddpackage("gh:marzer/tomlplusplus#master")
+
+  # {modern scanf} cpmaddpackage("gh:eliaskosunen/scnlib#v4.0.1")
 endif()
 
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -184,12 +186,14 @@ if(NOT USE_CPM_PACKAGES_ENABLED)
   find_package(fmt CONFIG REQUIRED)
   find_package(Microsoft.GSL CONFIG REQUIRED)
   find_package(scn CONFIG REQUIRED)
+  find_package(tomlplusplus CONFIG REQUIRED)
 endif()
 
 if(NOT STATIC_LINKING_ENABLED)
   target_link_libraries(
-    ${PROJECT_NAME} PRIVATE ftxui::component ftxui::dom ftxui::screen
-                            Microsoft.GSL::GSL fmt::fmt scn::scn)
+    ${PROJECT_NAME}
+    PRIVATE ftxui::component ftxui::dom ftxui::screen Microsoft.GSL::GSL
+            fmt::fmt tomlplusplus::tomlplusplus)
 else()
   message("STATIC LINKING ENABLED")
   target_link_libraries(
@@ -204,7 +208,7 @@ else()
             "-static"
             fmt::fmt
             "-static"
-            scn::scn
+            tomlplusplus::tomlplusplus
             "-static")
 endif()
 

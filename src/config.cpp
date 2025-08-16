@@ -1,5 +1,4 @@
 #include "config.hpp"
-#include <array>
 #include <cstdio>
 #include <cstring> // for strerror_s
 #include <exception>
@@ -7,34 +6,29 @@
 #include <fmt/base.h>
 #include <fmt/format.h>
 #include <fstream>
+#include <ftxui/screen/color.hpp>
 #include <ios>
-#include <istream>
+#include <iostream>
 #include <stdexcept>
-#include <string.h>
-#include <string>
 #include <string_view>
+#include <toml++/impl/parser.hpp>
+#include <toml++/toml.hpp>
 
 using std::string_view;
+using namespace std::literals;
 
 config::config(std::filesystem::path const& path) :
-    file_path_(path), symbol_('X'), was_generated_(false) {
+    file_path_(path), symbol_("X"), was_generated_(false) {
     init();
+    std::ios_base::sync_with_stdio(false);
 
-    std::ifstream file{path, std::ios::binary | std::ios::in};
-
-    if (!file.is_open()) {
-        throw std::runtime_error(fmt::format("Can't open {}", path.string()));
+    try {
+        tbl_ = toml::parse_file(path.c_str());
+        parse_data();
+    } catch (std::exception const& err) {
+        fmt::println(stderr, "{}", err.what());
+        generate_default();
     }
-
-    std::string line;
-    std::string token;
-
-    while (std::getline(file, line, ':') &&
-           std::getline(file >> std::ws, token, '\n')) {
-        parse_data(line, token);
-    }
-
-    file.close();
 }
 
 // Initializing default config.ini
@@ -46,105 +40,81 @@ void config::init() {
     }
 }
 
-void config::parse_data(std::string_view key, string_view data) {
-    try {
-        if (data.empty()) { throw std::runtime_error("Empty data"); }
+void config::parse_data() {
+    std::string_view username = tbl_["tictactoe"]["username"].value_or(""sv);
+    username_                 = username;
 
-        if (key == "username") {
-            username_ = data;
-        } else if (key == "color") {
-            color_ = data;
-        } else if (key == "symbol") {
-            symbol_ = data.front();
-        } else {
-            throw std::runtime_error("Corrupted config.ini");
-        }
-    } catch (std::exception const& ex) {
-        fmt::println(stderr, "{}", ex.what());
-        generate_default();
-    }
+    std::string_view color = tbl_["tictactoe"]["color"].value_or(""sv);
+    color_                 = color;
+
+    std::string_view symbol = tbl_["tictactoe"]["symbol"].value_or(""sv);
+    symbol_                 = symbol;
 }
+
 void config::generate_default() {
-    fmt::println(stderr, "Generated default config.");
+    file_.open(file_path_, std::ios::out);
 
-    if (std::filesystem::exists(file_path_)) {
-        auto err = std::remove(file_path_.string().c_str());
-        if (err != 0) { throw std::runtime_error("Failed to remove file."); }
-    }
-
-    std::ofstream file{file_path_, std::ios::binary | std::ios::out};
-    if (!file.is_open()) {
+    if (!file_.is_open()) {
         throw std::runtime_error(
             fmt::format("Can't open {}", file_path_.string())
         );
     }
 
-    for (auto str_v : default_data_) { file << str_v << '\n'; }
+    tbl_ = toml::parse(default_toml_, file_path_);
 
-    file.close();
+    file_ << tbl_ << '\n';
+    std::cout << tbl_ << '\n';
+
+    file_.close();
+
+    fmt::println(stderr, "Generated default configuration.toml");
 }
 
-void config::replace(
-    std::string_view key, std::string_view source, std::string_view destination
-) {
-    auto old_file_path = (file_path_.string() + ".temp");
+void config::replace(std::string_view key, std::string_view value) {
+    auto* str = tbl_["tictactoe"][key].as_string();
+    *str      = value;
 
-    auto err = std::rename(file_path_.string().c_str(), old_file_path.c_str());
+    file_.open(file_path_, std::ios::out);
 
-    if (err != 0) { throw std::runtime_error("Failed to rename."); }
-
-    // Open renamed file to read data and copy to new file with destination
-    // string
-    std::ifstream old_file{old_file_path};
-    std::ofstream new_file{file_path_};
-
-    if (!old_file.is_open()) {
+    if (!file_.is_open()) {
         throw std::runtime_error(
-            fmt::format("Can't open: {}", old_file_path.c_str())
+            fmt::format("Can't open {}", file_path_.string())
         );
     }
 
-    if (!new_file.is_open()) {
-        throw std::runtime_error(
-            fmt::format("Can't open: {}", file_path_.string())
-        );
-    }
+    file_ << tbl_ << '\n';
 
-    std::string line;
-    std::string token;
-    while (std::getline(old_file >> std::ws, line, ':') &&
-           std::getline(old_file >> std::ws, token)) {
-        if (key == line) {
-            auto pos = token.find(source);
-            if (pos != std::string::npos) {
-                token.replace(pos, token.size(), destination);
-                line += ": " + token;
-                new_file << line << '\n';
-                continue;
-            }
-        }
-        line += ": " + token;
-        new_file << line << '\n';
-    }
-
-    old_file.close();
-    new_file.close();
-
-    auto rem_err = std::remove(old_file_path.c_str());
-
-    if (rem_err != 0) {
-#ifdef WIN32_
-        std::array<char, 255> buffer{};
-        (void)strerror_s(buffer.data(), buffer.size(), rem_err);
-        throw std::runtime_error(
-            "Can't remove old file" + std::string(buffer.begin(), buffer.end())
-        );
-#elif __unix__
-        std::array<char, 255> buffer{};
-        (void)strerror_r(rem_err, buffer.data(), buffer.size());
-        throw std::runtime_error(
-            "Can't remove old file" + std::string(buffer.begin(), buffer.end())
-        );
-#endif
-    }
+    file_.close();
 }
+
+toml::table& config::get_config() { return tbl_; }
+
+[[nodiscard]] std::string_view config::get_username() {
+    try {
+        if (username_.empty()) { throw std::runtime_error("Empty username."); }
+        return username_;
+    } catch (std::exception const& ex) {
+        fmt::println(stderr, "{}", ex.what());
+        generate_default();
+    }
+    return default_username_;
+}
+
+ftxui::Color config::get_color() {
+    try {
+        if (color_ == "White") { return ftxui::Color::White; }
+        if (color_ == "Green") { return ftxui::Color::Green; }
+        if (color_ == "Blue") { return ftxui::Color::Blue; }
+
+        throw std::runtime_error("Invalid color");
+    } catch (std::exception const& ex) {
+        fmt::println(stderr, "{}", ex.what());
+        fmt::println("Only supported colors are: White, Green, Blue");
+        generate_default();
+    }
+    return default_color_;
+}
+
+[[nodiscard]] std::string_view config::get_symbol() const { return symbol_; }
+
+[[nodiscard]] bool config::was_generated() const { return was_generated_; }

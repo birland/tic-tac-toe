@@ -7,7 +7,7 @@
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <functional>
-#include <memory>
+#include <gsl/pointers>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,7 +28,6 @@ public:
 
     static ftxui::ButtonOption     button_style(int size);
     void                           display_warning(char const* msg);
-    void                           menu_options();
     bool                           s_keyboard_menu(ftxui::Event const& ev);
     bool                           s_keyboard_play(ftxui::Event const& ev);
     bool                           s_keyboard_exit(ftxui::Event const& ev);
@@ -47,6 +46,7 @@ public:
     void             s_update();
 
     void menu_about(int button_size);
+    void menu_options();
     void menu();
     void play();
     void ask_exit();
@@ -69,7 +69,8 @@ private:
     // Config
     config config_;
     // Players
-    std::pair<std::unique_ptr<player>, std::unique_ptr<player>> players_;
+    using players = std::pair<player, player>;
+    players players_;
     // Options
     options options_;
     // Board
