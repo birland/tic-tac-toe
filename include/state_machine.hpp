@@ -2,11 +2,10 @@
 #define STATE_MACHINE_HPP
 #include <array>
 #include <cstdint>
-#include <fmt/base.h>
+#include <fmt/format.h>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
-#include <utility>
 #include <variant>
 
 struct state {
@@ -31,7 +30,7 @@ public:
         using Ts::operator()...;
     };
 
-    // Set state, i.e. state::menu
+    // Set state, i.e. state::menu{}
     template <typename Tp>
     void set(Tp new_state) {
 
@@ -53,32 +52,33 @@ public:
         return std::visit(
             overloaded{
                 [](state::menu) {
-                    return str_states_[std::to_underlying(idx_e::MENU)];
+                    return str_states[fmt::underlying(StateIdx::Menu)];
                 },
                 [](state::play) {
-                    return str_states_[std::to_underlying(idx_e::PLAY)];
+                    return str_states[fmt::underlying(StateIdx::Play)];
                 },
                 [](state::exit) {
-                    return str_states_[std::to_underlying(idx_e::EXIT)];
+                    return str_states[fmt::underlying(StateIdx::Exit)];
                 },
             },
             var_
         );
     }
 
-    constexpr std::string_view str_v(auto&& val) {
+    [[maybe_unused]] constexpr std::string_view
+    str_v([[maybe_unused]] auto&& val) {
         using Tp = std::decay_t<decltype(val)>;
         if constexpr (std::is_same_v<Tp, state::menu>) {
-            return str_states_[std::to_underlying(idx_e::MENU)];
+            return str_states[fmt::underlying(StateIdx::Menu)];
         } else if (std::is_same_v<Tp, state::play>) {
-            return str_states_[std::to_underlying(idx_e::PLAY)];
+            return str_states[fmt::underlying(StateIdx::Play)];
         } else if (std::is_same_v<Tp, state::exit>) {
-            return str_states_[std::to_underlying(idx_e::EXIT)];
+            return str_states[fmt::underlying(StateIdx::Exit)];
         }
         throw std::logic_error("Unexpected type");
     }
 
-    bool compare(auto&& val) {
+    bool compare([[maybe_unused]] auto&& val) {
         using Tp = std::decay_t<decltype(val)>;
         return std::visit(
             overloaded{
@@ -100,16 +100,15 @@ public:
         return !(*this == other_state);
     }
 
-    enum class idx_e : std::uint8_t { MENU, PLAY, EXIT, SIZE };
+    enum class StateIdx : std::uint8_t { Menu, Play, Exit, Size };
 
 private:
     states var_;
     // When selected 'NO' button to prevent exit
     // we are using saved previous variant of the states
-    states previous_var_;
-    //////////////////////////////////////////
-    static constexpr std::array str_states_{"MENU", "PLAY", "EXIT"};
-    static_assert(str_states_.size() == std::to_underlying(idx_e::SIZE));
+    states                      previous_var_;
+    static constexpr std::array str_states{"MENU", "PLAY", "EXIT"};
+    static_assert(str_states.size() == fmt::underlying(StateIdx::Size));
 };
 
 #endif

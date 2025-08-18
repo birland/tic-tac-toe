@@ -1,4 +1,5 @@
 #include "options.hpp"
+#include <fmt/format.h>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -26,7 +27,6 @@ using ftxui::HEIGHT;
 using ftxui::text;
 using ftxui::WIDTH;
 using ftxui::Container::Vertical;
-using std::to_underlying;
 
 options::options(
     options::config_ptr const config, options::players_ptr const players
@@ -72,13 +72,13 @@ void options::input_name_events(std::function<void()> exit) {
 void options::display_warning(char const* msg) {
     auto screen      = ftxui::ScreenInteractive::Fullscreen();
     auto back_button = Vertical({Button(
-        labels_[to_underlying(label_idx::BACK)], [&screen] { screen.Exit(); },
+        labels[fmt::underlying(Label::BACK)], [&screen] { screen.Exit(); },
         button_style(25, 5)
     )});
 
     auto renderer = Renderer(back_button, [&back_button, msg]() {
         return ftxui::vbox(
-            {return_center_text(msg), return_center_vbox(back_button)}
+            {make_center_text(msg), make_center_vbox(back_button)}
         );
     });
 
@@ -102,7 +102,7 @@ int& options::get_selector() { return selector_; }
 
 Component options::get_save_button(std::function<void()> const& exit) {
     auto save_button = ftxui::Container::Vertical({Button(
-        labels_[std::to_underlying(label_idx::SAVE)],
+        labels[fmt::underlying(Label::SAVE)],
         [exit, this]() {
             if (!temp_.empty()) {
                 players_->first.set_username(std::move(temp_));

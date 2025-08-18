@@ -17,6 +17,7 @@ std::string_view    player::get_symbol() const { return symbol_; }
 char                player::get_prev_symbol() const { return prev_symbol_; }
 player::state_variant const& player::get_variant() { return variant_; }
 struct player::state         player::get_state() const { return state_; }
+[[nodiscard]] bool           player::is_won() const { return is_won_; }
 
 void player::set_username(std::string temp) { username_ = std::move(temp); }
 void player::set_symbol(std::string_view str_v) {
@@ -36,3 +37,5 @@ void player::set_symbol(char ch) {
     }
 }
 void player::set_color(ftxui::Color color) { color_ = color; }
+
+void player::set_won() { is_won_ = true; }

@@ -2,7 +2,6 @@
 #define CONFIG_HPP
 
 #include <filesystem>
-#include <fmt/base.h>
 #include <fstream>
 #include <ftxui/screen/color.hpp>
 #include <string_view>
@@ -37,18 +36,18 @@ private:
     std::string_view      username_;
     std::string_view      color_;
     std::string_view      symbol_;
-    bool                  was_generated_;
+    bool                  was_generated_{};
     ftxui::Color          default_color_{ftxui::Color::Blue};
     using sv = std::string_view;
-    static constexpr std::string_view default_toml_{sv(R"(
+    static constexpr std::string_view default_toml{sv(R"(
         [tictactoe]
         color = "Blue"
         symbol = "X"
         username = "Player"
         )")};
-    static constexpr std::string_view default_color_str_v_{sv("Blue")};
-    static constexpr std::string_view default_symbol_{sv("X")};
-    static constexpr std::string_view default_username_{sv("Player")};
+    static constexpr std::string_view default_color_str_v{sv("Blue")};
+    static constexpr std::string_view default_symbol{sv("X")};
+    static constexpr std::string_view default_username{sv("Player")};
 };
 
 #endif

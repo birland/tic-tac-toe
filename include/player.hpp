@@ -30,19 +30,21 @@ public:
     [[nodiscard]] char                get_prev_symbol() const;
     state_variant const&              get_variant();
     [[nodiscard]] state               get_state() const;
-    void                              set_color(ftxui::Color color);
+    [[nodiscard]] bool                is_won() const;
+    void                              set_username(std::string temp);
     void                              set_symbol(std::string_view str_v);
     void                              set_symbol(char ch);
-    void                              set_username(std::string temp);
-
+    void                              set_color(ftxui::Color color);
+    void                              set_won();
 
 private:
     std::string                                         username_;
     std::string_view                                    symbol_;
-    char                                                prev_symbol_;
+    char                                                prev_symbol_{};
     ftxui::Color                                        color_;
     std::variant<state::won, state::losed, state::draw> variant_;
     struct state                                        state_{};
+    bool                                                is_won_{};
 };
 
 #endif

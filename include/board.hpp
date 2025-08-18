@@ -25,66 +25,61 @@ public:
     ~board()                       = default;
 
 private:
-    static constexpr unsigned buttons_count_{9};
+    static constexpr unsigned buttons_count{9};
 
 public:
-    static constexpr unsigned arr_size_{buttons_count_ / 3};
-    using buttons_2d = std::array<ftxui::Components, arr_size_>;
-    using button_2d  = std::array<ftxui::Component, arr_size_>;
+    static constexpr unsigned arr_2d_size{buttons_count / 3};
+    using buttons_2d = std::array<ftxui::Components, arr_2d_size>;
+    using button_2d  = std::array<ftxui::Component, arr_2d_size>;
     // strings instead of chars for ftxui labels ... >< can we fix this?
-    using board_2d = std::array<std::array<std::string, arr_size_>, arr_size_>;
+    using board_2d =
+        std::array<std::array<std::string, arr_2d_size>, arr_2d_size>;
     ///////////////////////////////////////////////////////////////////////
 
-    void                                   update_draw();
-    void                                   update_moves();
-    board::buttons_2d&                     get_buttons();
-    [[nodiscard]] board::buttons_2d const& get_buttons() const;
+    void update_draw();
+    void update_check_moves();
 
-    button_2d&                     get_button_rows();
-    [[nodiscard]] button_2d const& get_button_rows() const;
-    [[nodiscard]] timer const&     get_timer() const;
-    [[nodiscard]] timer&           get_timer();
-    double                         get_secs_to_move();
-    [[nodiscard]] bool             is_end() const;
+    button_2d&           get_button_rows();
+    [[nodiscard]] timer& get_timer();
+    double               get_secs_to_move();
+    [[nodiscard]] bool   is_end() const;
 
 
     // Reference to the player which turn
     player* get_player_turn();
 
     void move_first();
-    void player_move(auto& cell);
+    void player_move(std::string& cell);
     void enemy_move();
 
     [[nodiscard]] bool is_full();
 
 private:
-    void init();
     ftxui::ButtonOption
-    button_style(auto& label, std::function<void()> on_click);
+    button_style(std::string& label, std::function<void()> on_click);
 
 public:
     player::state_variant check_victory();
 
 private:
-    void check_winner(player::state_variant& var) const;
-    bool check_cell(std::string_view cell);
+    void check_win_state(player::state_variant& var) const;
+    bool check_winner(std::string_view cell);
     bool check_col();
     bool check_row();
     bool check_diag();
     bool check_antidiag();
 
-    timer                                   timer_;
-    double                                  prev_seconds_{};
-    unsigned                                enemy_move_delay_{2};
-    int                                     selector_{};
-    int                                     button_size_{};
-    buttons_2d                              buttons_;
-    std::array<ftxui::Component, arr_size_> button_rows_;
-    players_ptr                             players_;
-    std::pair<unsigned, unsigned>           counters_;
-    std::pair<bool, bool>                   move_turn_;
-    bool                                    is_first_turn_{true};
-    bool                                    is_end_{};
+    timer                                     timer_;
+    unsigned                                  enemy_move_delay_{2};
+    int                                       selector_{};
+    int                                       button_size_{};
+    buttons_2d                                buttons_{};
+    std::array<ftxui::Component, arr_2d_size> button_rows_;
+    players_ptr                               players_;
+    std::pair<unsigned, unsigned>             counters_;
+    std::pair<bool, bool>                     move_turn_;
+    bool                                      is_first_turn_{true};
+    bool                                      is_end_{};
 
     /////////////////////
     //  |" "|" "|" "|  //

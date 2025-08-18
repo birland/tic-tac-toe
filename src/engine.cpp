@@ -2,34 +2,21 @@
 #include <array>
 #include <cassert>
 #include <chrono>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <cstddef>
 #include <filesystem>
-#include <fmt/base.h>
 #include <fmt/format.h>
 #include <ftxui/component/component.hpp>
-#include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/component/loop.hpp>
 #include <ftxui/component/screen_interactive.hpp>
-#include <ftxui/dom/canvas.hpp>
-#include <ftxui/dom/deprecated.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <ftxui/dom/node.hpp>
-#include <ftxui/screen/box.hpp>
 #include <ftxui/screen/color.hpp>
-#include <ftxui/screen/pixel.hpp>
-#include <ftxui/screen/screen.hpp>
 #include <functional>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <thread>
-#include <utility>
 #include <variant>
-#include <vector>
 #include "board.hpp"
 #include "box_utils.hpp"
 #include "label_buttons.hpp"
@@ -159,29 +146,17 @@ void engine::s_create_game() {
     board_ = board(&players_);
 }
 
-std::string engine::get_code(Event const& ev) {
-    std::string codes{};
-
-    for (auto const obj : ev.input()) {
-        codes += ' ' + fmt::to_string(static_cast<unsigned>(obj));
-    }
-
-    return codes;
-}
-
 ftxui::Component
 engine::end_game(char const* label, Color color, ftxui::Component& buttons) {
     auto component = Renderer(buttons, [&buttons, color, label] {
-        return vbox(
-            return_center_text(label, color), return_center_vbox(buttons)
-        );
+        return vbox(make_center_text(label, color), make_center_vbox(buttons));
     });
 
     return component;
 }
 
-ftxui::Component engine::game_result_buttons(std::function<void()> const& exit
-) {
+ftxui::Component
+engine::game_result_buttons(std::function<void()> const& exit) {
     constexpr int button_size = 12;
     auto          buttons     = Horizontal(
         {Button(
@@ -219,7 +194,7 @@ void engine::show_game_result(player::state_variant st) {
             },
             [&buttons, &component](player::state::losed) {
                 component =
-                    end_game("      YOU LOSED!      ", Color::Red, buttons);
+                    end_game("      YOU LOSE!      ", Color::Red, buttons);
             },
             [&buttons, &component](player::state::draw) {
                 component =
@@ -241,23 +216,28 @@ void engine::s_update_logic() {
 
 void engine::s_update() {
     board_.update_draw();
-    board_.update_moves();
+    board_.update_check_moves();
     s_update_logic();
 }
 
 void engine::menu_about(int button_size) {
     auto button = Horizontal({Button(
-        labels_[std::to_underlying(label_idx::BACK)],
+        labels[fmt::underlying(Label::BACK)],
         [this]() { main_screen_.ExitLoopClosure()(); },
         button_style(button_size)
     )});
 
+
     auto component = Renderer(button, [&button]() {
         return vbox(
-            {text("Not implemented yet.") | border | bold | center |
-                 color(Color::Red),
-             return_center_vbox(button)}
-        );
+                   {make_center_text(
+                        "The project was created for educational purposes"
+                    ),
+                    make_center_text("MIT License"),
+                    make_center_text("https://github.com/birland", Color::Red),
+                    make_center_vbox(button)}
+               ) |
+            center | border | color(Color::Red);
     });
 
     main_screen_.Loop(component);
@@ -311,30 +291,32 @@ void engine::menu_options() {
 
     screen.Loop(renderer);
 
-    auto& first  = players_.first;
-    auto& second = players_.second;
     // Save new name to the config file
-    std::string_view const new_username = first.get_username_str_v();
+    auto&      first        = players_.first;
+    auto const new_username = first.get_username_str_v();
+
     config_.replace("username", new_username);
 
     // Save new symbol to the config file
-    std::string_view const new_symbol = options_.get_toggle_entries(
-    )[static_cast<std::size_t>(options_.get_selector())];
+    std::string_view const new_symbol =
+        options_.get_toggle_entries()[static_cast<std::size_t>(
+            options_.get_selector()
+        )];
 
     if (players_.first.get_symbol() != new_symbol) {
         first.set_symbol(new_symbol);
-        second.set_symbol(first.get_prev_symbol());
+        players_.second.set_symbol(first.get_prev_symbol());
         config_.replace("symbol", new_symbol);
     }
 }
 
 void engine::menu() {
     constexpr int button_size{15};
-    using enum label_idx;
+    using enum Label;
     auto buttons = Vertical(
-        // PLAY Button
+        // Play Button
         {Button(
-             labels_[std::to_underlying(PLAY)],
+             labels[fmt::underlying(PLAY)],
              [this]() {
                  state_ = state::play{};
                  main_screen_.ExitLoopClosure()();
@@ -343,18 +325,19 @@ void engine::menu() {
          ),
          // ABOUT Button
          Button(
-             labels_[std::to_underlying(ABOUT)],
-             [this]() { menu_about(button_size); }, button_style(button_size)
+             labels[fmt::underlying(ABOUT)],
+             [this]() { menu_about(button_size - 5); },
+             button_style(button_size)
 
          ),
          // OPTIONS Button
          Button(
-             labels_[std::to_underlying(OPTIONS)], [this] { menu_options(); },
+             labels[fmt::underlying(OPTIONS)], [this] { menu_options(); },
              button_style(button_size)
          ),
-         // EXIT Button
+         // Exit Button
          Button(
-             labels_[std::to_underlying(EXIT)],
+             labels[fmt::underlying(EXIT)],
              [this]() {
                  state_ = state::exit{};
                  main_screen_.Exit();
@@ -364,7 +347,7 @@ void engine::menu() {
     );
 
     auto component = Renderer(buttons, [&buttons]() {
-        return vbox(return_center_vbox(buttons));
+        return vbox(make_center_vbox(buttons));
     });
 
     component |= CatchEvent([this](Event const& ev) { return s_keyboard(ev); });
@@ -385,12 +368,12 @@ void engine::play() {
 
     board_.update_draw();
 
-    auto& rows{board_.get_button_rows()};
+    board::button_2d& rows{board_.get_button_rows()};
 
     // Flex for every row to expand them on the entire window
     auto layout = Vertical({rows[0] | flex, rows[1] | flex, rows[2] | flex});
 
-    auto const&    window_color = Color::Green;
+    auto constexpr window_color = Color::Green;
     ftxui::Element window_label;
 
     auto renderer = Renderer(layout, [&] {
@@ -422,6 +405,7 @@ void engine::play() {
 
     ftxui::Loop loop{&main_screen_, renderer};
 
+    // NOLINTNEXTLINE (altera-id-dependent-backward-branch)
     while (!loop.HasQuitted() && (!stop_signal_)) {
         loop.RunOnce();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -438,7 +422,7 @@ void engine::ask_exit() {
     auto          buttons = Horizontal(
         // YES Button
         {Button(
-             labels_[std::to_underlying(label_idx::YES)],
+             labels[fmt::underlying(Label::YES)],
              [this, &screen]() {
                  quit();
                  screen.ExitLoopClosure()();
@@ -448,7 +432,7 @@ void engine::ask_exit() {
          ),
                   // NO Button
                   Button(
-             labels_[std::to_underlying(label_idx::NO)],
+             labels[fmt::underlying(Label::NO)],
              [this, &screen]() {
                  state_ = state_.get_previous_variant();
                  screen.ExitLoopClosure()();
@@ -459,8 +443,8 @@ void engine::ask_exit() {
 
     auto renderer = Renderer(buttons, [&buttons]() {
         return vbox(
-            {return_center_text("Do you want to exit?"),
-             return_center_vbox(buttons)}
+            {make_center_text("Do you want to exit?"),
+             make_center_vbox(buttons)}
         );
     });
 

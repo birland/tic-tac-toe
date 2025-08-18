@@ -14,11 +14,10 @@
 #include <toml++/impl/parser.hpp>
 #include <toml++/toml.hpp>
 
-using std::string_view;
 using namespace std::literals;
 
 config::config(std::filesystem::path const& path) :
-    file_path_(path), symbol_("X"), was_generated_(false) {
+    file_path_(path), symbol_("X") {
     init();
     std::ios_base::sync_with_stdio(false);
 
@@ -41,14 +40,15 @@ void config::init() {
 }
 
 void config::parse_data() {
-    std::string_view username = tbl_["tictactoe"]["username"].value_or(""sv);
-    username_                 = username;
+    std::string_view const username =
+        tbl_["tictactoe"]["username"].value_or(""sv);
+    username_ = username;
 
-    std::string_view color = tbl_["tictactoe"]["color"].value_or(""sv);
-    color_                 = color;
+    std::string_view const color = tbl_["tictactoe"]["color"].value_or(""sv);
+    color_                       = color;
 
-    std::string_view symbol = tbl_["tictactoe"]["symbol"].value_or(""sv);
-    symbol_                 = symbol;
+    std::string_view const symbol = tbl_["tictactoe"]["symbol"].value_or(""sv);
+    symbol_                       = symbol;
 }
 
 void config::generate_default() {
@@ -60,7 +60,7 @@ void config::generate_default() {
         );
     }
 
-    tbl_ = toml::parse(default_toml_, file_path_);
+    tbl_ = toml::parse(default_toml, file_path_);
 
     file_ << tbl_ << '\n';
     std::cout << tbl_ << '\n';
@@ -97,7 +97,7 @@ toml::table& config::get_config() { return tbl_; }
         fmt::println(stderr, "{}", ex.what());
         generate_default();
     }
-    return default_username_;
+    return default_username;
 }
 
 ftxui::Color config::get_color() {

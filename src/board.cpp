@@ -1,18 +1,11 @@
 #include "board.hpp"
 #include <algorithm>
 #include <array>
-#include <cstdlib> // for system()
-#include <fmt/base.h>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
-#include <ftxui/component/event.hpp>
-#include <ftxui/component/screen_interactive.hpp>
-#include <ftxui/dom/canvas.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
-#include <ftxui/screen/screen.hpp>
-#include <ftxui/util/ref.hpp>
 #include <functional>
 #include <gsl/pointers>
 #include <string>
@@ -32,7 +25,7 @@ static std::jthread beep() { return std::jthread(Beep, 440, 200); }
 
 #elif __linux__
 
-#include <cstdio>
+#include <cstdlib> // for system()
 static std::jthread beep() {
     return std::jthread(system, "beep -f 5000 -l 50 -r 2");
 } // NOLINT
@@ -70,8 +63,6 @@ board::board(board::players_ptr players, int button_size) :
 }
 
 void board::update_draw() {
-    // TODO: Draw 'X' and 'O' using canvas instead of just text?
-    // Because text on the buttons are too small.
     for (unsigned col{}; col < buttons_.size(); ++col) {
         for (unsigned row{}; row < buttons_[col].size(); ++row) {
             auto& cell   = board_[col][row];
@@ -80,7 +71,7 @@ void board::update_draw() {
             move_first();
 
             button = Button(button_style(cell, [&cell, this] {
-                if (move_turn_.first && cell == " ") {
+                if (move_turn_.first && cell == " " && !is_end_) {
                     player_move(cell);
                 } else {
                     beep();
@@ -102,7 +93,7 @@ void board::update_draw() {
     };
 }
 
-void board::update_moves() {
+void board::update_check_moves() {
     if (!is_end_) {
         if (move_turn_.second) { enemy_move(); }
 
@@ -116,21 +107,13 @@ void board::update_moves() {
     }
 }
 
-board::buttons_2d&       board::get_buttons() { return buttons_; }
-board::buttons_2d const& board::get_buttons() const { return buttons_; }
-
-board::button_2d&       board::get_button_rows() { return button_rows_; }
-board::button_2d const& board::get_button_rows() const { return button_rows_; }
-
-[[nodiscard]] timer const& board::get_timer() const { return timer_; }
-[[nodiscard]] timer&       board::get_timer() { return timer_; }
-double                     board::get_secs_to_move() {
+board::button_2d&    board::get_button_rows() { return button_rows_; }
+[[nodiscard]] timer& board::get_timer() { return timer_; }
+double               board::get_secs_to_move() {
     return enemy_move_delay_ - timer_.elapsed_seconds();
 }
 
 [[nodiscard]] bool board::is_end() const { return is_end_; }
-
-// TODO: Implement slider for enemy move from 1 second to 10 seconds
 
 void board::move_first() {
     if (is_first_turn_ && move_turn_.second) {
@@ -143,7 +126,7 @@ void board::move_first() {
 }
 
 
-void board::player_move(auto& cell) {
+void board::player_move(std::string& cell) {
     auto& player = players_->first;
 
     cell = player.get_symbol();
@@ -188,7 +171,7 @@ player* board::get_player_turn() {
 }
 
 ftxui::ButtonOption
-board::button_style(auto& label, std::function<void()> on_click) {
+board::button_style(std::string& label, std::function<void()> on_click) {
     ButtonOption option;
     option.label    = label;
     option.on_click = std::move(on_click);
@@ -217,7 +200,7 @@ board::button_style(auto& label, std::function<void()> on_click) {
 
         if (es.focused) {
             element = text(label) | center | ftxui::color(local_color) |
-                border | ftxui::color(ftxui::Color::Yellow3);
+                border | ftxui::color(ftxui::Color::Yellow3) | ftxui::bold;
         }
 
         return element | ftxui::flex;
@@ -229,23 +212,23 @@ board::button_style(auto& label, std::function<void()> on_click) {
 player::state_variant board::check_victory() {
     player::state_variant var;
 
-    check_winner(var);
+    check_win_state(var);
 
     return var;
 }
 
 
-void board::check_winner(player::state_variant& var) const {
-    if (counters_.first == 3) {
+void board::check_win_state(player::state_variant& var) const {
+    if (players_->first.is_won()) {
         var = player::state::won{};
-    } else if (counters_.second == 3) {
+    } else if (players_->second.is_won()) {
         var = player::state::losed{};
     } else {
         var = player::state::draw{};
     }
 }
 
-bool board::check_cell(std::string_view cell) {
+bool board::check_winner(std::string_view cell) {
     if (cell == " ") { return false; }
 
     if (cell == players_->first.get_symbol()) {
@@ -254,16 +237,24 @@ bool board::check_cell(std::string_view cell) {
         ++counters_.second;
     }
 
-    return counters_.first == 3 || counters_.second == 3;
+    if (counters_.first == 3) {
+        players_->first.set_won();
+        return true;
+    }
+    if (counters_.second == 3) {
+        players_->second.set_won();
+        return true;
+    }
+
+    return false;
 }
 
 bool board::check_col() {
     for (unsigned col{}; col < board_.size(); ++col) {
         for (unsigned row{}; row < board_[col].size(); ++row) {
             auto& cell = board_[row][col];
-            if (check_cell(cell)) { return true; }
+            if (check_winner(cell)) { return true; }
         }
-        // Reset
         counters_ = {};
     }
 
@@ -274,9 +265,8 @@ bool board::check_row() {
     for (unsigned col{}; col < board_.size(); ++col) {
         for (unsigned row{}; row < board_[col].size(); ++row) {
             auto& cell = board_[col][row];
-            if (check_cell(cell)) { return true; }
+            if (check_winner(cell)) { return true; }
         }
-        // Reset
         counters_ = {};
     }
 
@@ -284,34 +274,29 @@ bool board::check_row() {
 }
 
 bool board::check_diag() {
-    // TODO:
-    // Bad way?
-    std::array const diag{
-        board_[0][0].c_str(), board_[1][1].c_str(), board_[2][2].c_str()
+    std::array<std::string_view const, arr_2d_size> const diag{
+        board_[0][0], board_[1][1], board_[2][2]
     };
 
-    for (auto const& elem : diag) {
-        if (check_cell(elem)) { return true; }
-    }
-    // Reset
+    auto res = std::ranges::any_of(diag, [this](auto elem) {
+        return check_winner(elem);
+    });
+
     counters_ = {};
 
-    return false;
+    return res;
 }
 
 bool board::check_antidiag() {
-    // TODO:
-    // Bad way?
-    std::array const antidiag{
-        board_[0][2].c_str(), board_[1][1].c_str(), board_[2][0].c_str()
+    std::array<std::string_view const, arr_2d_size> const antidiag{
+        board_[0][2], board_[1][1], board_[2][0]
     };
 
-    for (auto const& elem : antidiag) {
-        if (check_cell(elem)) { return true; }
-    }
+    auto res = std::ranges::any_of(antidiag, [this](auto const& elem) {
+        return check_winner(elem);
+    });
 
-    // Reset
     counters_ = {};
 
-    return false;
+    return res;
 }
