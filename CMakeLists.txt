@@ -55,8 +55,16 @@ file(GLOB_RECURSE HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
      "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp")
 
 # compile commands for some tools
-file(CREATE_LINK "${CMAKE_BINARY_DIR}/compile_commands.json"
-     "${CMAKE_SOURCE_DIR}/compile_commands.json" SYMBOLIC)
+if(UNIX)
+  # NOT WORKING ON WINDOWS: https://github.com/ament/ament_cmake/issues/350
+  file(CREATE_LINK "${CMAKE_BINARY_DIR}/compile_commands.json"
+       "${CMAKE_SOURCE_DIR}/compile_commands.json" SYMBOLIC)
+elseif(WIN32)
+  add_custom_target(
+    copy-compile-commands ALL
+    ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_BINARY_DIR}/compile_commands.json ${CMAKE_CURRENT_LIST_DIR})
+endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

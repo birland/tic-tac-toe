@@ -10,7 +10,6 @@
 #include <gsl/pointers>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <utility>
 #include "player.hpp"
 #include "random.hpp"
@@ -21,14 +20,12 @@
 
 #include <Windows.h>
 #include <utilapiset.h>
-static std::jthread beep() { return std::jthread(Beep, 440, 200); }
+static void beep() { Beep(440, 200); }
 
 #elif __linux__
 
 #include <cstdlib> // for system()
-static std::jthread beep() {
-    return std::jthread(system, "beep -f 5000 -l 50 -r 2");
-} // NOLINT
+static void beep() { system("beep -f 5000 -l 50 -r 2"); } // NOLINT
 
 #else
 

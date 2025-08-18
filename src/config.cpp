@@ -1,6 +1,5 @@
 #include "config.hpp"
 #include <cstdio>
-#include <cstring> // for strerror_s
 #include <exception>
 #include <filesystem>
 #include <fmt/base.h>
@@ -60,7 +59,7 @@ void config::generate_default() {
         );
     }
 
-    tbl_ = toml::parse(default_toml, file_path_);
+    tbl_ = toml::parse(default_toml, file_path_.string());
 
     file_ << tbl_ << '\n';
     std::cout << tbl_ << '\n';
