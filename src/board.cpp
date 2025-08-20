@@ -1,6 +1,7 @@
 #include "board.hpp"
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -10,29 +11,21 @@
 #include <gsl/pointers>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include "player.hpp"
 #include "random.hpp"
 #include "timer.hpp"
 
-// Bad way for beep sound :D
-#ifdef _WIN32
 
+#ifdef _WIN32
 #include <Windows.h>
 #include <utilapiset.h>
 static void beep() { Beep(440, 200); }
-
-#elif __linux__
-
-#include <cstdlib> // for system()
-static void beep() { system("beep -f 5000 -l 50 -r 2"); } // NOLINT
-
 #else
-
+#include <fmt/base.h>
 static void beep() { fmt::print(stderr, "\a"); }
-
 #endif
-
 
 using ftxui::border;
 using ftxui::Button;
@@ -71,7 +64,8 @@ void board::update_draw() {
                 if (move_turn_.first && cell == " " && !is_end_) {
                     player_move(cell);
                 } else {
-                    beep();
+                    std::jthread t{beep};
+                    t.detach();
                 }
             }));
         }

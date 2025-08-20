@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.05)
+cmake_minimum_required(VERSION 3.28.3)
 project(
   tic-tac-toe
   VERSION 1.0.0
@@ -183,3 +183,5 @@ else()
             tomlplusplus::tomlplusplus
             "-static")
 endif()
+
+install(TARGETS ${PROJECT_NAME})
