@@ -11,14 +11,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Export compile_commands.json for clangd and clang-tidy
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_COLOR_DIAGNOSTICS ON)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 message("CHECK CURRENT COMPILER")
 message(${CMAKE_CXX_COMPILER_ID})
 message(${CMAKE_CXX_COMPILER})
+
 if(UNIX)
   message(${CMAKE_CXX_COMPILER_AR})
   message(${CMAKE_CXX_COMPILER_RANLIB})
 endif()
+
 message("Build type: ${CMAKE_BUILD_TYPE}")
 
 option(USE_CPM_PACKAGES_ENABLED "Flag to use find package or CPM" ON)
@@ -133,9 +136,8 @@ endif()
 
 if(ENABLE_SANITIZERS AND NOT MSVC)
   target_compile_options(
-    ${PROJECT_NAME}
-    PRIVATE $<$<CONFIG:DEBUG>:SHELL:-fsanitize=address -fsanitize=undefined>
-            # -fsanitize=thread
+    ${PROJECT_NAME} PRIVATE $<$<CONFIG:DEBUG>:SHELL:-fsanitize=address
+                            -fsanitize=undefined> # -fsanitize=thread
   )
   target_link_libraries(
     ${PROJECT_NAME} PRIVATE $<$<CONFIG:DEBUG>:-fsanitize=address

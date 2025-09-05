@@ -1,7 +1,6 @@
 #include "board.hpp"
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
