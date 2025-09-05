@@ -9,12 +9,10 @@
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include <functional>
-#include <gsl/pointers>
 #include <string>
 #include <utility>
 #include <vector>
 #include "box_utils.hpp"
-#include "config.hpp"
 #include "label_buttons.hpp"
 #include "player.hpp"
 
@@ -29,11 +27,10 @@ using ftxui::text;
 using ftxui::WIDTH;
 using ftxui::Container::Vertical;
 
-options::options(config& config, std::pair<player, player>& players) :
-    config_(&config), players_(&players),
-    default_button_option_(button_style()),
-    selector_(players_->first.get_symbol() == "X" ? 0 : 1),
-    temp_(players_->first.get_username_str_v()) {
+options::options(options::players& players) :
+    players_(players), default_button_option_(button_style()),
+    selector_(players_.first.get_symbol() == "X" ? 0 : 1),
+    temp_(players_.first.get_username_str_v()) {
 
     // Toggle symbol
     toggle_symbol_ = Vertical({toggles_});
@@ -57,7 +54,7 @@ ftxui::ButtonOption options::button_style(int width, int height) {
 }
 
 void options::input_name_events(std::function<void()> exit) {
-    temp_       = players_->first.get_username_str_v();
+    temp_       = players_.first.get_username_str_v();
     input_name_ = ftxui::Input(
         &temp_, "click here to write: ", ftxui::InputOption::Spacious()
     );
@@ -105,7 +102,7 @@ Component options::get_save_button(std::function<void()> const& exit) {
         labels[fmt::underlying(Label::SAVE)],
         [exit, this]() {
             if (!temp_.empty()) {
-                players_->first.set_username(std::move(temp_));
+                players_.first.set_username(std::move(temp_));
                 exit();
             } else {
                 display_warning("Username can't be empty.");

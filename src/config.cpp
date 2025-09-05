@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <toml++/impl/parser.hpp>
+#include <toml++/impl/table.hpp>
 #include <toml++/toml.hpp>
 
 using namespace std::literals;
@@ -31,10 +32,9 @@ config::config(std::filesystem::path const& path) :
 
 // Initializing default config.ini
 void config::init() {
-    if (!std::filesystem::exists(file_path_)) {
+    if (!is_generated()) {
         generate_default();
-    } else {
-        was_generated_ = true;
+        is_first_launch_ = true;
     }
 }
 
@@ -116,4 +116,10 @@ ftxui::Color config::get_color() {
 
 [[nodiscard]] std::string_view config::get_symbol() const { return symbol_; }
 
-[[nodiscard]] bool config::was_generated() const { return was_generated_; }
+[[nodiscard]] bool config::is_generated() {
+    return std::filesystem::exists(file_path_);
+}
+
+[[nodiscard]] bool config::is_first_launch() const { return is_first_launch_; }
+
+[[nodiscard]] bool& config::is_first_launch() { return is_first_launch_; }

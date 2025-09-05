@@ -6,19 +6,16 @@
 #include <ftxui/component/component_options.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <functional>
-#include <gsl/pointers>
 #include <string>
 #include <utility>
 #include <vector>
-#include "config.hpp"
 #include "player.hpp"
 
 class options {
 public:
-    using players_ptr = gsl::not_null<std::pair<player, player>*>;
-    using config_ptr  = gsl::not_null<config*>;
+    using players = std::pair<player, player>;
 
-    explicit options(config& config, std::pair<player, player>& players);
+    explicit options(players& players);
     options(options const&)            = delete;
     options(options&&)                 = delete;
     options& operator=(options const&) = delete;
@@ -47,10 +44,8 @@ public:
     [[nodiscard]] int&                            get_selector();
 
 private:
-    // Config
-    config_ptr config_;
     // Players
-    players_ptr players_;
+    players& players_;
     // Components
     ftxui::Component    input_name_;
     ftxui::Component    toggle_symbol_;

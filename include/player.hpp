@@ -11,8 +11,8 @@ public:
     player(std::string_view name, ftxui::Color color, std::string_view symbol);
     player(player const&)            = delete;
     player(player&&)                 = default;
-    player& operator=(player const&) = default;
-    player& operator=(player&&)      = default;
+    player& operator=(player const&) = delete;
+    player& operator=(player&&)      = delete;
     ~player()                        = default;
 
     struct state {

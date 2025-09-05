@@ -149,8 +149,8 @@ void board::enemy_move() {
     }
 }
 
-player* board::get_player_turn() {
-    return move_turn_.first ? &players_->first : &players_->second;
+player& board::get_player_turn() {
+    return move_turn_.first ? players_->first : players_->second;
 }
 
 [[nodiscard]] bool board::is_full() {

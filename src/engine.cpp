@@ -59,7 +59,7 @@ engine::engine() :
         ),
         player("Enemy", Color::Red, config_.get_symbol() == "X" ? "O" : "X")
     ),
-    options_(config_, players_), board_(players_) {
+    options_(players_), board_(players_) {
     keys_.reserve(500);
 }
 
@@ -309,6 +309,8 @@ void engine::menu_options() {
         players_.second.set_symbol(first.get_prev_symbol());
         config_.replace("symbol", new_symbol);
     }
+
+    config_.is_first_launch() = false;
 }
 
 void engine::menu() {
@@ -360,7 +362,7 @@ void engine::play() {
     // Ask user to input name only on the first launch
     // when config is not generated yet.
     if (players_.first.get_username_str_v().empty() ||
-        !config_.was_generated()) {
+        config_.is_first_launch()) {
         menu_options();
     }
     s_create_game();
@@ -378,18 +380,18 @@ void engine::play() {
     ftxui::Element window_label;
 
     auto renderer = Renderer(layout, [&] {
-        auto* player = board_.get_player_turn();
-        if (player->get_username_str_v() ==
+        auto& player = board_.get_player_turn();
+        if (player.get_username_str_v() ==
             players_.first.get_username_str_v()) {
-            window_label = text("MOVE: " + player->get_username()) | center |
-                color(player->get_color());
+            window_label = text("MOVE: " + player.get_username()) | center |
+                color(player.get_color());
         } else {
             window_label =
                 text(
-                    "MOVE: " + player->get_username() + " in " +
+                    "MOVE: " + player.get_username() + " in " +
                     fmt::to_string(board_.get_secs_to_move()) + " seconds"
                 ) |
-                center | color(player->get_color());
+                center | color(player.get_color());
         }
 
         return vbox(

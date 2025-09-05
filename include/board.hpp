@@ -15,9 +15,9 @@
 
 class board {
 public:
-    using players_ptr = gsl::not_null<std::pair<player, player>*>;
-
-    explicit board(std::pair<player, player>& players, int size = 30);
+    using players     = std::pair<player, player>;
+    using players_ptr = gsl::not_null<players*>;
+    explicit board(players& players, int size = 30);
     board(board const&)            = delete;
     board(board&&)                 = default;
     board& operator=(board const&) = delete;
@@ -46,7 +46,7 @@ public:
 
 
     // Reference to the player which turn
-    player* get_player_turn();
+    player& get_player_turn();
 
     void move_first();
     void player_move(std::string& cell);
