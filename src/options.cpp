@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 #include "box_utils.hpp"
+#include "config.hpp"
 #include "label_buttons.hpp"
 #include "player.hpp"
 
@@ -28,10 +29,9 @@ using ftxui::text;
 using ftxui::WIDTH;
 using ftxui::Container::Vertical;
 
-options::options(
-    options::config_ptr const config, options::players_ptr const players
-) :
-    config_(config), players_(players), default_button_option_(button_style()),
+options::options(config& config, std::pair<player, player>& players) :
+    config_(&config), players_(&players),
+    default_button_option_(button_style()),
     selector_(players_->first.get_symbol() == "X" ? 0 : 1),
     temp_(players_->first.get_username_str_v()) {
 

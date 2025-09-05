@@ -18,7 +18,7 @@ public:
     using players_ptr = gsl::not_null<std::pair<player, player>*>;
     using config_ptr  = gsl::not_null<config*>;
 
-    explicit options(config_ptr config, players_ptr players);
+    explicit options(config& config, std::pair<player, player>& players);
     options(options const&)            = delete;
     options(options&&)                 = delete;
     options& operator=(options const&) = delete;

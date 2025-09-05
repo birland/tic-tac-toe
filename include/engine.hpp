@@ -31,8 +31,9 @@ public:
     void s_reset_game();
     void s_create_game();
 
-    [[nodiscard]] static ftxui::Component
-    end_game(char const* label, ftxui::Color color, ftxui::Component& buttons);
+    [[nodiscard]] static ftxui::Component end_game(
+        char const* label, ftxui::Color color, ftxui::Component const& buttons
+    );
     [[nodiscard]] ftxui::Component
          game_result_buttons(std::function<void()> const& exit);
     void show_game_result(player::state_variant st);

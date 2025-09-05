@@ -59,7 +59,7 @@ engine::engine() :
         ),
         player("Enemy", Color::Red, config_.get_symbol() == "X" ? "O" : "X")
     ),
-    options_(&config_, &players_), board_(&players_) {
+    options_(config_, players_), board_(players_) {
     keys_.reserve(500);
 }
 
@@ -143,11 +143,12 @@ void engine::s_reset_game() { s_create_game(); }
 void engine::s_create_game() {
     // if (players_.first.get_symbol() == "X") {
     // players_.second.set_symbol("O"); }
-    board_ = board(&players_);
+    board_ = board(players_);
 }
 
-ftxui::Component
-engine::end_game(char const* label, Color color, ftxui::Component& buttons) {
+ftxui::Component engine::end_game(
+    char const* label, Color color, ftxui::Component const& buttons
+) {
     auto component = Renderer(buttons, [&buttons, color, label] {
         return vbox(make_center_text(label, color), make_center_vbox(buttons));
     });

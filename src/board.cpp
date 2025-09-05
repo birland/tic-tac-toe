@@ -1,6 +1,7 @@
 #include "board.hpp"
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/component_base.hpp>
 #include <ftxui/component/component_options.hpp>
@@ -38,9 +39,9 @@ using ftxui::size;
 using ftxui::text;
 using ftxui::WIDTH;
 
-board::board(board::players_ptr players, int button_size) :
-    button_size_(button_size), players_(players) {
-    for (unsigned cnt{}; cnt < buttons_.size(); ++cnt) {
+board::board(std::pair<player, player>& players, int button_size) :
+    button_size_(button_size), players_(&players) {
+    for (std::size_t cnt{}; cnt < buttons_.size(); ++cnt) {
         buttons_[cnt].resize(buttons_.size());
     }
 
@@ -52,8 +53,8 @@ board::board(board::players_ptr players, int button_size) :
 }
 
 void board::update_draw() {
-    for (unsigned col{}; col < buttons_.size(); ++col) {
-        for (unsigned row{}; row < buttons_[col].size(); ++row) {
+    for (std::size_t col{}; col < buttons_.size(); ++col) {
+        for (std::size_t row{}; row < buttons_[col].size(); ++row) {
             auto& cell   = board_[col][row];
             auto& button = buttons_[col][row];
 
@@ -108,7 +109,6 @@ double               board::get_secs_to_move() {
 void board::move_first() {
     if (is_first_turn_ && move_turn_.second) {
         enemy_move();
-        is_first_turn_    = false;
         move_turn_.second = false;
     }
 
@@ -132,10 +132,11 @@ void board::enemy_move() {
         is_first_turn_) {
         auto& enemy = players_->second;
 
-        for (unsigned arr_idx{}; arr_idx < board_.size(); ++arr_idx) {
-            for (unsigned str_idx{}; str_idx < board_[arr_idx].size();
+        for (std::size_t arr_idx{}; arr_idx < board_.size(); ++arr_idx) {
+            for (std::size_t str_idx{}; str_idx < board_[arr_idx].size();
                  ++str_idx) {
-                auto& cell = board_[psdrng::get(0U, 2U)][psdrng::get(0U, 2U)];
+                auto& cell =
+                    board_[psdrng::get(0UL, 2UL)][psdrng::get(0UL, 2UL)];
                 if (cell == " ") {
                     // player's turn
                     move_turn_.first  = !move_turn_.first;
@@ -161,7 +162,7 @@ player* board::get_player_turn() {
 }
 
 ftxui::ButtonOption
-board::button_style(std::string& label, std::function<void()> on_click) {
+board::button_style(std::string const& label, std::function<void()> on_click) {
     ButtonOption option;
     option.label    = label;
     option.on_click = std::move(on_click);
@@ -240,8 +241,8 @@ bool board::check_winner(std::string_view cell) {
 }
 
 bool board::check_col() {
-    for (unsigned col{}; col < board_.size(); ++col) {
-        for (unsigned row{}; row < board_[col].size(); ++row) {
+    for (std::size_t col{}; col < board_.size(); ++col) {
+        for (std::size_t row{}; row < board_[col].size(); ++row) {
             auto& cell = board_[row][col];
             if (check_winner(cell)) { return true; }
         }
@@ -252,8 +253,8 @@ bool board::check_col() {
 }
 
 bool board::check_row() {
-    for (unsigned col{}; col < board_.size(); ++col) {
-        for (unsigned row{}; row < board_[col].size(); ++row) {
+    for (std::size_t col{}; col < board_.size(); ++col) {
+        for (std::size_t row{}; row < board_[col].size(); ++row) {
             auto& cell = board_[col][row];
             if (check_winner(cell)) { return true; }
         }

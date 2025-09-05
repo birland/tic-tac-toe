@@ -17,7 +17,7 @@ class board {
 public:
     using players_ptr = gsl::not_null<std::pair<player, player>*>;
 
-    explicit board(players_ptr players, int size = 30);
+    explicit board(std::pair<player, player>& players, int size = 30);
     board(board const&)            = delete;
     board(board&&)                 = default;
     board& operator=(board const&) = delete;
@@ -56,7 +56,7 @@ public:
 
 private:
     ftxui::ButtonOption
-    button_style(std::string& label, std::function<void()> on_click);
+    button_style(std::string const& label, std::function<void()> on_click);
 
 public:
     player::state_variant check_victory();
